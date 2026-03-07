@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: 'Montserrat', 'Verdana', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #EEE6F3;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #EEE6F3;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #AB82C5;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #702B9D;
+}
+
+/* Button styles */
+.btn-primary {
+  @apply bg-nyu-violet text-white px-4 py-2 rounded-lg font-medium hover:bg-nyu-violet-dark transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-nyu-violet-medium text-white px-4 py-2 rounded-lg font-medium hover:bg-nyu-violet-dark transition-colors;
+}
+
+.btn-danger {
+  @apply bg-red-700 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-800 transition-colors;
+}
+
+/* Card styles */
+.card {
+  @apply bg-white rounded-lg shadow-md p-6;
+}
+
+/* Input styles */
+.input {
+  @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-nyu-violet focus:border-transparent;
+}
+
+/* Label styles */
+.label {
+  @apply block text-nyu-text-secondary font-medium mb-2;
+}

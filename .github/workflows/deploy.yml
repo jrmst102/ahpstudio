@@ -1,0 +1,79 @@
+name: Deploy AHP Studio
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+        
+    - name: Install server dependencies
+      working-directory: ./server
+      run: npm ci
+      
+    - name: Run server tests
+      working-directory: ./server
+      run: npm test
+      
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+        
+    - name: Install client dependencies
+      working-directory: ./client
+      run: npm ci
+      
+    - name: Build client
+      working-directory: ./client
+      run: npm run build
+      
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: client-build
+        path: client/build
+        
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Download client build
+      uses: actions/download-artifact@v3
+      with:
+        name: client-build
+        path: client/build
+        
+    - name: Deploy to DigitalOcean
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.DO_SSH_KEY }}
+        HOST: ${{ secrets.DO_HOST }}
+        USER: ${{ secrets.DO_USER }}
+      run: |
+        echo "$SSH_PRIVATE_KEY" > private_key.pem
+        chmod 600 private_key.pem
+        scp -i private_key.pem -r client/build server ${USER}@${HOST}:/var/www/ahpstudio/
+        ssh -i private_key.pem ${USER}@${HOST} 'cd /var/www/ahpstudio/server && npm install --production && pm2 restart ahpstudio'
+        rm -f private_key.pem

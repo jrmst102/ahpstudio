@@ -1,0 +1,48 @@
+// Prisma schema for AHP Studio
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(uuid())
+  username        String    @unique
+  email           String    @unique
+  passwordHash    String    @map("password_hash")
+  fullName        String    @map("full_name")
+  role            Role      @default(STUDENT)
+  failedAttempts  Int       @default(0) @map("failed_attempts")
+  isLocked        Boolean   @default(false) @map("is_locked")
+  lockedAt        DateTime? @map("locked_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  lastLoginAt     DateTime? @map("last_login_at")
+  
+  problems        Problem[]
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  STUDENT
+}
+
+model Problem {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  title       String
+  description String?
+  fileKey     String?  @map("file_key")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("problems")
+}
