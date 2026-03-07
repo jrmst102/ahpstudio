@@ -1,24 +1,316 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useProblem } from '../context/ProblemContext';
+import computeService from '../services/computeService';
 import Alert from '../components/common/Alert';
+import Button from '../components/common/Button';
+import { MAX_CRITERIA, MAX_ALTERNATIVES, SAATY_SCALE, CR_THRESHOLD, CHART_COLORS } from '../utils/constants';
+
+/* ───────────────────────── helpers ───────────────────────── */
+
+function emptyMatrix(n) {
+  return Array.from({ length: n }, (_, i) =>
+    Array.from({ length: n }, (_, j) => (i === j ? 1 : i < j ? 1 : 1))
+  );
+}
+
+function formatValue(v) {
+  if (v >= 1) return String(Math.round(v));
+  return '1/' + String(Math.round(1 / v));
+}
+
+const SLIDER_LABELS = [
+  { val: 1 / 9, label: '1/9' },
+  { val: 1 / 8, label: '1/8' },
+  { val: 1 / 7, label: '1/7' },
+  { val: 1 / 6, label: '1/6' },
+  { val: 1 / 5, label: '1/5' },
+  { val: 1 / 4, label: '1/4' },
+  { val: 1 / 3, label: '1/3' },
+  { val: 1 / 2, label: '1/2' },
+  { val: 1, label: '1' },
+  { val: 2, label: '2' },
+  { val: 3, label: '3' },
+  { val: 4, label: '4' },
+  { val: 5, label: '5' },
+  { val: 6, label: '6' },
+  { val: 7, label: '7' },
+  { val: 8, label: '8' },
+  { val: 9, label: '9' },
+];
+
+function valToSlider(v) {
+  let best = 0;
+  let bestDist = Infinity;
+  SLIDER_LABELS.forEach((s, i) => {
+    const d = Math.abs(s.val - v);
+    if (d < bestDist) { bestDist = d; best = i; }
+  });
+  return best;
+}
+
+function sliderToVal(i) {
+  return SLIDER_LABELS[i].val;
+}
+
+/* ───────────────────────── component ────────────────────────── */
 
 const ProblemEditor = () => {
   const { problemId } = useParams();
-  const { currentProblem, loadProblem, loading } = useProblem();
+  const navigate = useNavigate();
+  const { currentProblem, loadProblem, updateProblem, saveProblem, loading } = useProblem();
   const [activeTab, setActiveTab] = useState('definition');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [saving, setSaving] = useState(false);
 
+  // Local working state
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [criteria, setCriteria] = useState([]);
+  const [alternatives, setAlternatives] = useState([]);
+  const [criteriaMatrix, setCriteriaMatrix] = useState([]);
+  const [altMatrices, setAltMatrices] = useState({});
+  const [newCriterion, setNewCriterion] = useState('');
+  const [newAlternative, setNewAlternative] = useState('');
+
+  // Computed results
+  const [criteriaWeights, setCriteriaWeights] = useState(null);
+  const [criteriaCR, setCriteriaCR] = useState(null);
+  const [altWeights, setAltWeights] = useState({});
+  const [altCRs, setAltCRs] = useState({});
+  const [globalResults, setGlobalResults] = useState(null);
+  const [computing, setComputing] = useState(false);
+
+  // Sensitivity
+  const [sensitivityCriterion, setSensitivityCriterion] = useState('');
+  const [sensitivityData, setSensitivityData] = useState(null);
+
+  /* ─── Load problem data ─── */
   useEffect(() => {
     if (problemId) {
-      loadProblem(problemId).catch(err => {
-        setError('Failed to load problem');
-      });
+      loadProblem(problemId).catch(() => setError('Failed to load problem'));
     }
-  }, [problemId]);
+  }, [problemId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!currentProblem) return;
+    setTitle(currentProblem.title || '');
+    setDescription(currentProblem.description || '');
+    const d = currentProblem.data;
+    if (d) {
+      setCriteria(d.criteria || []);
+      setAlternatives(d.alternatives || []);
+      setCriteriaMatrix(d.criteriaMatrix || emptyMatrix((d.criteria || []).length));
+      setAltMatrices(d.altMatrices || {});
+    } else {
+      setCriteria([]);
+      setAlternatives([]);
+      setCriteriaMatrix([]);
+      setAltMatrices({});
+    }
+  }, [currentProblem]);
+
+  /* ─── Auto-save helper ─── */
+  const doSave = useCallback(async (crit, alts, cMat, aMats) => {
+    if (!problemId) return;
+    setSaving(true);
+    setError('');
+    try {
+      const payload = {
+        problem: { title, description },
+        criteria: crit,
+        alternatives: alts,
+        criteriaMatrix: cMat,
+        altMatrices: aMats,
+      };
+      await saveProblem(problemId, payload);
+      setSuccess('Saved');
+      setTimeout(() => setSuccess(''), 2000);
+    } catch {
+      setError('Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  }, [problemId, title, description, saveProblem]);
+
+  const handleSave = () => doSave(criteria, alternatives, criteriaMatrix, altMatrices);
+
+  /* ─── Definition ─── */
+  const handleUpdateDefinition = async () => {
+    try {
+      await updateProblem(problemId, { title, description });
+      setSuccess('Definition updated');
+      setTimeout(() => setSuccess(''), 2000);
+    } catch {
+      setError('Failed to update definition');
+    }
+  };
+
+  /* ─── Criteria ─── */
+  const addCriterion = () => {
+    const name = newCriterion.trim();
+    if (!name || criteria.includes(name)) return;
+    if (criteria.length >= MAX_CRITERIA) { setError(`Maximum ${MAX_CRITERIA} criteria allowed`); return; }
+    const updated = [...criteria, name];
+    setCriteria(updated);
+    const newMat = emptyMatrix(updated.length);
+    // copy old values
+    for (let i = 0; i < criteriaMatrix.length; i++)
+      for (let j = 0; j < criteriaMatrix.length; j++)
+        newMat[i][j] = criteriaMatrix[i][j];
+    setCriteriaMatrix(newMat);
+    setNewCriterion('');
+    doSave(updated, alternatives, newMat, altMatrices);
+  };
+
+  const removeCriterion = (idx) => {
+    const updated = criteria.filter((_, i) => i !== idx);
+    setCriteria(updated);
+    const newMat = emptyMatrix(updated.length);
+    let ri = 0;
+    for (let i = 0; i < criteria.length; i++) {
+      if (i === idx) continue;
+      let ci = 0;
+      for (let j = 0; j < criteria.length; j++) {
+        if (j === idx) continue;
+        newMat[ri][ci] = criteriaMatrix[i][j];
+        ci++;
+      }
+      ri++;
+    }
+    setCriteriaMatrix(newMat);
+    const removedName = criteria[idx];
+    const newAltMats = { ...altMatrices };
+    delete newAltMats[removedName];
+    setAltMatrices(newAltMats);
+    doSave(updated, alternatives, newMat, newAltMats);
+  };
+
+  /* ─── Alternatives ─── */
+  const addAlternative = () => {
+    const name = newAlternative.trim();
+    if (!name || alternatives.includes(name)) return;
+    if (alternatives.length >= MAX_ALTERNATIVES) { setError(`Maximum ${MAX_ALTERNATIVES} alternatives allowed`); return; }
+    const updated = [...alternatives, name];
+    setAlternatives(updated);
+    // extend alt matrices
+    const newAltMats = {};
+    criteria.forEach(c => {
+      const old = altMatrices[c] || emptyMatrix(alternatives.length);
+      const m = emptyMatrix(updated.length);
+      for (let i = 0; i < old.length; i++)
+        for (let j = 0; j < old.length; j++)
+          m[i][j] = old[i][j];
+      newAltMats[c] = m;
+    });
+    setAltMatrices(newAltMats);
+    setNewAlternative('');
+    doSave(criteria, updated, criteriaMatrix, newAltMats);
+  };
+
+  const removeAlternative = (idx) => {
+    const updated = alternatives.filter((_, i) => i !== idx);
+    setAlternatives(updated);
+    const newAltMats = {};
+    criteria.forEach(c => {
+      const old = altMatrices[c] || emptyMatrix(alternatives.length);
+      const m = emptyMatrix(updated.length);
+      let ri = 0;
+      for (let i = 0; i < alternatives.length; i++) {
+        if (i === idx) continue;
+        let ci = 0;
+        for (let j = 0; j < alternatives.length; j++) {
+          if (j === idx) continue;
+          m[ri][ci] = old[i][j];
+          ci++;
+        }
+        ri++;
+      }
+      newAltMats[c] = m;
+    });
+    setAltMatrices(newAltMats);
+    doSave(criteria, updated, criteriaMatrix, newAltMats);
+  };
+
+  /* ─── Matrix editing ─── */
+  const setCriteriaCell = (i, j, val) => {
+    const m = criteriaMatrix.map(r => [...r]);
+    m[i][j] = val;
+    m[j][i] = 1 / val;
+    setCriteriaMatrix(m);
+  };
+
+  const setAltCell = (criterion, i, j, val) => {
+    const old = altMatrices[criterion] || emptyMatrix(alternatives.length);
+    const m = old.map(r => [...r]);
+    m[i][j] = val;
+    m[j][i] = 1 / val;
+    setAltMatrices({ ...altMatrices, [criterion]: m });
+  };
+
+  /* ─── Compute ─── */
+  const handleCompute = async () => {
+    if (criteria.length < 2) { setError('Need at least 2 criteria'); return; }
+    if (alternatives.length < 2) { setError('Need at least 2 alternatives'); return; }
+    setComputing(true);
+    setError('');
+    try {
+      // 1. Criteria weights
+      const cRes = await computeService.computePriorities(criteriaMatrix);
+      const cWeights = {};
+      criteria.forEach((c, i) => { cWeights[c] = cRes.priorities[i]; });
+      setCriteriaWeights(cWeights);
+
+      const cCons = await computeService.computeConsistency(criteriaMatrix);
+      setCriteriaCR(cCons);
+
+      // 2. Alt weights per criterion
+      const aWeights = {};
+      const aCRs = {};
+      for (const c of criteria) {
+        const mat = altMatrices[c] || emptyMatrix(alternatives.length);
+        const aRes = await computeService.computePriorities(mat);
+        const w = {};
+        alternatives.forEach((a, i) => { w[a] = aRes.priorities[i]; });
+        aWeights[c] = w;
+
+        const aCons = await computeService.computeConsistency(mat);
+        aCRs[c] = aCons;
+      }
+      setAltWeights(aWeights);
+      setAltCRs(aCRs);
+
+      // 3. Synthesize
+      const synth = await computeService.synthesize(cWeights, aWeights);
+      setGlobalResults(synth);
+
+      // Save matrices too
+      await doSave(criteria, alternatives, criteriaMatrix, altMatrices);
+      setActiveTab('results');
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'Computation failed');
+    } finally {
+      setComputing(false);
+    }
+  };
+
+  /* ─── Sensitivity ─── */
+  const handleSensitivity = async () => {
+    if (!criteriaWeights || !altWeights || !sensitivityCriterion) return;
+    try {
+      const data = await computeService.sensitivityAnalysis(
+        criteriaWeights, altWeights, sensitivityCriterion, 20
+      );
+      setSensitivityData(data);
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'Sensitivity analysis failed');
+    }
+  };
+
+  /* ───────────────────────── Render ───────────────────────── */
   const tabs = [
-    { id: 'definition', label: 'Problem Definition', icon: '📝' },
+    { id: 'definition', label: 'Definition', icon: '📝' },
     { id: 'criteria', label: 'Criteria', icon: '📊' },
     { id: 'alternatives', label: 'Alternatives', icon: '🎯' },
     { id: 'comparisons', label: 'Comparisons', icon: '⚖️' },
@@ -26,7 +318,7 @@ const ProblemEditor = () => {
     { id: 'sensitivity', label: 'Sensitivity', icon: '🔍' },
   ];
 
-  if (loading) {
+  if (loading && !currentProblem) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
@@ -45,111 +337,415 @@ const ProblemEditor = () => {
     );
   }
 
+  /* ── Matrix renderer ── */
+  const renderMatrix = (items, matrix, setCell) => {
+    if (items.length < 2) return <p className="text-nyu-text-secondary italic">Add at least 2 items to make comparisons.</p>;
+    return (
+      <div className="overflow-x-auto">
+        <table className="min-w-full border-collapse">
+          <thead>
+            <tr>
+              <th className="p-2 border border-gray-200 bg-nyu-violet text-white text-sm"></th>
+              {items.map((item, j) => (
+                <th key={j} className="p-2 border border-gray-200 bg-nyu-violet text-white text-sm font-medium">{item}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((rowItem, i) => (
+              <tr key={i}>
+                <td className="p-2 border border-gray-200 bg-nyu-violet-ultra font-medium text-sm">{rowItem}</td>
+                {items.map((_, j) => {
+                  if (i === j) {
+                    return <td key={j} className="p-2 border border-gray-200 bg-gray-100 text-center text-sm font-mono">1</td>;
+                  }
+                  if (i > j) {
+                    return <td key={j} className="p-2 border border-gray-200 bg-gray-50 text-center text-sm font-mono text-gray-500">{formatValue(matrix[i]?.[j] || 1)}</td>;
+                  }
+                  const val = matrix[i]?.[j] || 1;
+                  return (
+                    <td key={j} className="p-2 border border-gray-200 text-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-sm font-semibold text-nyu-violet">{formatValue(val)}</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={16}
+                          value={valToSlider(val)}
+                          onChange={e => setCell(i, j, sliderToVal(Number(e.target.value)))}
+                          className="w-20 accent-nyu-violet"
+                        />
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-3xl font-bold text-nyu-text-primary mb-2">
-          {currentProblem?.title || 'Untitled Problem'}
-        </h2>
-        {currentProblem?.description && (
-          <p className="text-nyu-text-secondary">{currentProblem.description}</p>
-        )}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-nyu-text-primary mb-1">
+            {currentProblem?.title || 'Untitled Problem'}
+          </h2>
+          {currentProblem?.description && (
+            <p className="text-nyu-text-secondary">{currentProblem.description}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {saving && <span className="text-sm text-nyu-text-secondary">Saving…</span>}
+          <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')}>← Dashboard</Button>
+          <Button size="sm" onClick={handleSave} disabled={saving}>Save</Button>
+        </div>
       </div>
 
       {error && <Alert type="error" message={error} onClose={() => setError('')} />}
+      {success && <Alert type="success" message={success} onClose={() => setSuccess('')} />}
 
-      {/* Navigation Tabs */}
+      {/* Tabs */}
       <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-gray-200 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 px-4 py-4 text-sm font-medium transition-colors ${
+              className={`flex-1 min-w-[120px] px-4 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'bg-nyu-violet text-white border-b-2 border-nyu-violet'
+                  ? 'bg-nyu-violet text-white'
                   : 'text-nyu-text-secondary hover:bg-nyu-violet-ultra'
               }`}
             >
-              <span className="mr-2">{tab.icon}</span>
+              <span className="mr-1">{tab.icon}</span>
               {tab.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Content Area */}
+      {/* Content */}
       <div className="card min-h-[500px]">
+
+        {/* ──────────── DEFINITION TAB ──────────── */}
         {activeTab === 'definition' && (
           <div>
-            <h3 className="text-xl font-semibold text-nyu-text-primary mb-4">
-              Problem Definition
-            </h3>
-            <p className="text-nyu-text-secondary">
-              Define your decision goal and problem statement.
-            </p>
-            {/* Problem definition form will go here */}
+            <h3 className="text-xl font-semibold text-nyu-text-primary mb-4">Problem Definition</h3>
+            <div className="space-y-4 max-w-xl">
+              <div>
+                <label className="block text-sm font-medium text-nyu-text-primary mb-1">Title</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  className="input w-full"
+                  placeholder="Decision problem title"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-nyu-text-primary mb-1">Description</label>
+                <textarea
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  rows={4}
+                  className="input w-full"
+                  placeholder="Describe the decision goal…"
+                />
+              </div>
+              <Button onClick={handleUpdateDefinition}>Update Definition</Button>
+            </div>
           </div>
         )}
 
+        {/* ──────────── CRITERIA TAB ──────────── */}
         {activeTab === 'criteria' && (
           <div>
-            <h3 className="text-xl font-semibold text-nyu-text-primary mb-4">
-              Criteria Management
-            </h3>
-            <p className="text-nyu-text-secondary">
-              Add and organize your decision criteria (up to {10} criteria).
+            <h3 className="text-xl font-semibold text-nyu-text-primary mb-2">Criteria</h3>
+            <p className="text-nyu-text-secondary mb-4">
+              Add your decision criteria (up to {MAX_CRITERIA}). These are the factors by which alternatives will be judged.
             </p>
-            {/* Criteria management will go here */}
+
+            {/* Add form */}
+            <div className="flex gap-2 mb-6 max-w-md">
+              <input
+                type="text"
+                value={newCriterion}
+                onChange={e => setNewCriterion(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addCriterion()}
+                className="input flex-1"
+                placeholder="Criterion name"
+                maxLength={60}
+              />
+              <Button onClick={addCriterion} disabled={!newCriterion.trim() || criteria.length >= MAX_CRITERIA}>Add</Button>
+            </div>
+
+            {/* List */}
+            {criteria.length === 0 ? (
+              <p className="text-gray-400 italic">No criteria added yet.</p>
+            ) : (
+              <ul className="space-y-2 max-w-md">
+                {criteria.map((c, i) => (
+                  <li key={i} className="flex items-center justify-between bg-nyu-violet-ultra rounded-lg px-4 py-3">
+                    <span className="font-medium text-nyu-text-primary">{i + 1}. {c}</span>
+                    <button onClick={() => removeCriterion(i)} className="text-red-600 hover:text-red-800 text-sm font-medium">Remove</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-4 text-sm text-nyu-text-secondary">{criteria.length}/{MAX_CRITERIA} criteria</p>
           </div>
         )}
 
+        {/* ──────────── ALTERNATIVES TAB ──────────── */}
         {activeTab === 'alternatives' && (
           <div>
-            <h3 className="text-xl font-semibold text-nyu-text-primary mb-4">
-              Alternatives Management
-            </h3>
-            <p className="text-nyu-text-secondary">
-              Define the alternatives you're evaluating (up to {12} alternatives).
+            <h3 className="text-xl font-semibold text-nyu-text-primary mb-2">Alternatives</h3>
+            <p className="text-nyu-text-secondary mb-4">
+              Add the alternatives you are evaluating (up to {MAX_ALTERNATIVES}).
             </p>
-            {/* Alternatives management will go here */}
+
+            <div className="flex gap-2 mb-6 max-w-md">
+              <input
+                type="text"
+                value={newAlternative}
+                onChange={e => setNewAlternative(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addAlternative()}
+                className="input flex-1"
+                placeholder="Alternative name"
+                maxLength={60}
+              />
+              <Button onClick={addAlternative} disabled={!newAlternative.trim() || alternatives.length >= MAX_ALTERNATIVES}>Add</Button>
+            </div>
+
+            {alternatives.length === 0 ? (
+              <p className="text-gray-400 italic">No alternatives added yet.</p>
+            ) : (
+              <ul className="space-y-2 max-w-md">
+                {alternatives.map((a, i) => (
+                  <li key={i} className="flex items-center justify-between bg-nyu-violet-ultra rounded-lg px-4 py-3">
+                    <span className="font-medium text-nyu-text-primary">{i + 1}. {a}</span>
+                    <button onClick={() => removeAlternative(i)} className="text-red-600 hover:text-red-800 text-sm font-medium">Remove</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-4 text-sm text-nyu-text-secondary">{alternatives.length}/{MAX_ALTERNATIVES} alternatives</p>
           </div>
         )}
 
+        {/* ──────────── COMPARISONS TAB ──────────── */}
         {activeTab === 'comparisons' && (
           <div>
-            <h3 className="text-xl font-semibold text-nyu-text-primary mb-4">
-              Pairwise Comparisons
-            </h3>
-            <p className="text-nyu-text-secondary">
-              Compare criteria and alternatives using Saaty's 1-9 scale.
+            <h3 className="text-xl font-semibold text-nyu-text-primary mb-2">Pairwise Comparisons</h3>
+            <p className="text-nyu-text-secondary mb-1">
+              Use sliders to compare items using Saaty's 1–9 scale. Values &gt; 1 mean the row item is more important; values &lt; 1 mean the column item is more important.
             </p>
-            {/* Comparison interface will go here */}
+            <p className="text-xs text-nyu-text-secondary mb-6">
+              1 = Equal &nbsp;|&nbsp; 3 = Moderate &nbsp;|&nbsp; 5 = Strong &nbsp;|&nbsp; 7 = Very Strong &nbsp;|&nbsp; 9 = Extreme
+            </p>
+
+            {criteria.length < 2 || alternatives.length < 2 ? (
+              <Alert type="warning" message="Add at least 2 criteria and 2 alternatives before making comparisons." />
+            ) : (
+              <>
+                {/* Criteria vs criteria */}
+                <div className="mb-8">
+                  <h4 className="text-lg font-semibold text-nyu-text-primary mb-3">Criteria Comparison</h4>
+                  {renderMatrix(criteria, criteriaMatrix, setCriteriaCell)}
+                </div>
+
+                {/* Alternatives per criterion */}
+                {criteria.map(c => (
+                  <div key={c} className="mb-8">
+                    <h4 className="text-lg font-semibold text-nyu-text-primary mb-3">
+                      Alternatives w.r.t. <span className="text-nyu-violet">"{c}"</span>
+                    </h4>
+                    {renderMatrix(
+                      alternatives,
+                      altMatrices[c] || emptyMatrix(alternatives.length),
+                      (i, j, val) => setAltCell(c, i, j, val)
+                    )}
+                  </div>
+                ))}
+
+                <div className="flex gap-3 mt-4">
+                  <Button onClick={handleSave} variant="outline" disabled={saving}>Save Comparisons</Button>
+                  <Button onClick={handleCompute} disabled={computing}>
+                    {computing ? 'Computing…' : 'Compute Results'}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
+        {/* ──────────── RESULTS TAB ──────────── */}
         {activeTab === 'results' && (
           <div>
-            <h3 className="text-xl font-semibold text-nyu-text-primary mb-4">
-              Analysis Results
-            </h3>
-            <p className="text-nyu-text-secondary">
-              View the computed priorities and final rankings.
-            </p>
-            {/* Results visualization will go here */}
+            <h3 className="text-xl font-semibold text-nyu-text-primary mb-4">Analysis Results</h3>
+
+            {!globalResults ? (
+              <div className="text-center py-12">
+                <p className="text-nyu-text-secondary mb-4">No results computed yet. Complete your comparisons first.</p>
+                <Button onClick={() => setActiveTab('comparisons')}>Go to Comparisons</Button>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {/* Criteria Weights */}
+                <div>
+                  <h4 className="text-lg font-semibold mb-3">Criteria Weights</h4>
+                  {criteriaCR && (
+                    <p className={`text-sm mb-2 ${criteriaCR.isConsistent ? 'text-green-700' : 'text-red-700'}`}>
+                      Consistency Ratio (CR) = {(criteriaCR.cr * 100).toFixed(2)}% — {criteriaCR.isConsistent ? '✓ Consistent' : '✗ Inconsistent (> 10%)'}
+                    </p>
+                  )}
+                  <div className="space-y-2 max-w-lg">
+                    {criteria.map((c, i) => {
+                      const w = criteriaWeights?.[c] || 0;
+                      return (
+                        <div key={i} className="flex items-center gap-3">
+                          <span className="w-32 text-sm font-medium truncate">{c}</span>
+                          <div className="flex-1 bg-gray-200 rounded-full h-5 relative">
+                            <div
+                              className="h-5 rounded-full"
+                              style={{ width: `${(w * 100).toFixed(1)}%`, backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                            />
+                          </div>
+                          <span className="w-16 text-sm text-right font-mono">{(w * 100).toFixed(1)}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Alt weights per criterion */}
+                {criteria.map(c => (
+                  <div key={c}>
+                    <h4 className="text-md font-semibold mb-1">Alternatives w.r.t. "{c}"</h4>
+                    {altCRs[c] && (
+                      <p className={`text-xs mb-2 ${altCRs[c].isConsistent ? 'text-green-700' : 'text-red-700'}`}>
+                        CR = {(altCRs[c].cr * 100).toFixed(2)}% — {altCRs[c].isConsistent ? '✓' : '✗ Inconsistent'}
+                      </p>
+                    )}
+                    <div className="space-y-1 max-w-lg">
+                      {alternatives.map((a, i) => {
+                        const w = altWeights[c]?.[a] || 0;
+                        return (
+                          <div key={i} className="flex items-center gap-3">
+                            <span className="w-32 text-sm truncate">{a}</span>
+                            <div className="flex-1 bg-gray-200 rounded-full h-4 relative">
+                              <div className="h-4 rounded-full" style={{ width: `${(w * 100).toFixed(1)}%`, backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            </div>
+                            <span className="w-16 text-sm text-right font-mono">{(w * 100).toFixed(1)}%</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Global ranking */}
+                <div>
+                  <h4 className="text-lg font-semibold mb-3">Final Ranking (Global Priorities)</h4>
+                  <div className="space-y-2 max-w-lg">
+                    {Object.entries(globalResults.normalized || {})
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([alt, w], i) => (
+                        <div key={alt} className="flex items-center gap-3">
+                          <span className="w-8 text-lg font-bold text-nyu-violet">#{i + 1}</span>
+                          <span className="w-32 text-sm font-medium truncate">{alt}</span>
+                          <div className="flex-1 bg-gray-200 rounded-full h-6 relative">
+                            <div
+                              className="h-6 rounded-full flex items-center justify-end pr-2"
+                              style={{ width: `${(w * 100).toFixed(1)}%`, backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                            >
+                              <span className="text-xs text-white font-semibold">{(w * 100).toFixed(1)}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
+        {/* ──────────── SENSITIVITY TAB ──────────── */}
         {activeTab === 'sensitivity' && (
           <div>
-            <h3 className="text-xl font-semibold text-nyu-text-primary mb-4">
-              Sensitivity Analysis
-            </h3>
-            <p className="text-nyu-text-secondary">
-              Analyze how changes in criteria weights affect the rankings.
-            </p>
-            {/* Sensitivity analysis will go here */}
+            <h3 className="text-xl font-semibold text-nyu-text-primary mb-4">Sensitivity Analysis</h3>
+
+            {!criteriaWeights ? (
+              <div className="text-center py-12">
+                <p className="text-nyu-text-secondary mb-4">Compute results first to run sensitivity analysis.</p>
+                <Button onClick={() => setActiveTab('comparisons')}>Go to Comparisons</Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-3 items-end mb-6 max-w-md">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-nyu-text-primary mb-1">Criterion to Vary</label>
+                    <select
+                      value={sensitivityCriterion}
+                      onChange={e => setSensitivityCriterion(e.target.value)}
+                      className="input w-full"
+                    >
+                      <option value="">Select a criterion…</option>
+                      {criteria.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <Button onClick={handleSensitivity} disabled={!sensitivityCriterion}>Analyze</Button>
+                </div>
+
+                {sensitivityData && (
+                  <div>
+                    <h4 className="text-md font-semibold mb-3">
+                      Rankings as "{sensitivityCriterion}" weight varies from 0 to 1
+                    </h4>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full border-collapse text-sm">
+                        <thead>
+                          <tr>
+                            <th className="p-2 border border-gray-200 bg-nyu-violet text-white">Weight</th>
+                            {alternatives.map(a => (
+                              <th key={a} className="p-2 border border-gray-200 bg-nyu-violet text-white">{a}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(sensitivityData.dataPoints || []).map((dp, idx) => (
+                            <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              <td className="p-2 border border-gray-200 font-mono text-center">{(dp.weight * 100).toFixed(0)}%</td>
+                              {alternatives.map(a => (
+                                <td key={a} className="p-2 border border-gray-200 font-mono text-center">
+                                  {((dp.priorities?.[a] || 0) * 100).toFixed(1)}%
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {sensitivityData.rankReversals && sensitivityData.rankReversals.length > 0 && (
+                      <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="font-semibold text-yellow-800 mb-1">Rank Reversals Detected</p>
+                        {sensitivityData.rankReversals.map((rr, i) => (
+                          <p key={i} className="text-sm text-yellow-700">
+                            At weight {(rr.weight * 100).toFixed(0)}%: {rr.description || `${rr.alternative1} and ${rr.alternative2} swap positions`}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
