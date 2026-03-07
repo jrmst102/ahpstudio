@@ -1,6 +1,6 @@
 {
   "name": "ahpstudio",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "AHP Studio - Web-based Analytic Hierarchy Process decision support application",
   "author": "Dr. Jose Mendoza",
   "license": "UNLICENSED",
@@ -13,9 +13,7 @@
     "build:server": "cd server && npm run build",
     "start": "cd server && npm start",
     "test": "cd server && npm test",
-    "prisma:migrate": "cd server && npx prisma migrate dev",
-    "prisma:generate": "cd server && npx prisma generate",
-    "prisma:seed": "cd server && npx prisma db seed"
+    "seed": "cd server && npm run seed"
   },
   "workspaces": [
     "client",

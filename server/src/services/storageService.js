@@ -1,5 +1,4 @@
 const AWS = require('aws-sdk');
-const { v4: uuidv4 } = require('uuid');
 
 // Configure DigitalOcean Spaces
 const spacesEndpoint = new AWS.Endpoint(process.env.SPACES_ENDPOINT);
@@ -12,114 +11,68 @@ const s3 = new AWS.S3({
 
 const BUCKET_NAME = process.env.SPACES_BUCKET;
 
-/**
- * Upload a decision problem file to DigitalOcean Spaces
- * @param {string} userId - User ID
- * @param {string} problemId - Problem ID
- * @param {Object} problemData - Problem data to save
- * @returns {Promise<string>} File key in the bucket
- */
-async function uploadProblemFile(userId, problemId, problemData) {
-  const fileKey = `users/${userId}/problems/${problemId}.AHP`;
-  
-  const params = {
-    Bucket: BUCKET_NAME,
-    Key: fileKey,
-    Body: JSON.stringify(problemData, null, 2),
-    ContentType: 'application/json',
-    ACL: 'private',
-  };
-  
-  try {
-    await s3.putObject(params).promise();
-    return fileKey;
-  } catch (error) {
-    console.error('Error uploading file to Spaces:', error);
-    throw new Error('Failed to upload problem file');
-  }
-}
+// ── Generic JSON helpers ──────────────────────────────────────────────
 
-/**
- * Download a decision problem file from DigitalOcean Spaces
- * @param {string} fileKey - File key in the bucket
- * @returns {Promise<Object>} Problem data
- */
-async function downloadProblemFile(fileKey) {
-  const params = {
-    Bucket: BUCKET_NAME,
-    Key: fileKey,
-  };
-  
+async function getJSON(key) {
+  const params = { Bucket: BUCKET_NAME, Key: key };
   try {
     const data = await s3.getObject(params).promise();
     return JSON.parse(data.Body.toString('utf-8'));
   } catch (error) {
-    console.error('Error downloading file from Spaces:', error);
-    throw new Error('Failed to download problem file');
+    if (error.code === 'NoSuchKey') return null;
+    throw error;
   }
 }
 
-/**
- * Delete a decision problem file from DigitalOcean Spaces
- * @param {string} fileKey - File key in the bucket
- * @returns {Promise<void>}
- */
+async function putJSON(key, obj) {
+  const params = {
+    Bucket: BUCKET_NAME,
+    Key: key,
+    Body: JSON.stringify(obj, null, 2),
+    ContentType: 'application/json',
+    ACL: 'private',
+  };
+  await s3.putObject(params).promise();
+}
+
+async function deleteKey(key) {
+  const params = { Bucket: BUCKET_NAME, Key: key };
+  await s3.deleteObject(params).promise();
+}
+
+// ── Problem file helpers ──────────────────────────────────────────────
+
+async function uploadProblemFile(userId, problemId, problemData) {
+  const fileKey = `users/${userId}/problems/${problemId}.AHP`;
+  await putJSON(fileKey, problemData);
+  return fileKey;
+}
+
+async function downloadProblemFile(fileKey) {
+  const data = await getJSON(fileKey);
+  if (data === null) throw new Error('Problem file not found');
+  return data;
+}
+
 async function deleteProblemFile(fileKey) {
-  const params = {
-    Bucket: BUCKET_NAME,
-    Key: fileKey,
-  };
-  
-  try {
-    await s3.deleteObject(params).promise();
-  } catch (error) {
-    console.error('Error deleting file from Spaces:', error);
-    throw new Error('Failed to delete problem file');
-  }
+  await deleteKey(fileKey);
 }
 
-/**
- * List all problem files for a user
- * @param {string} userId - User ID
- * @returns {Promise<Array>} List of file objects
- */
 async function listUserFiles(userId) {
-  const params = {
-    Bucket: BUCKET_NAME,
-    Prefix: `users/${userId}/problems/`,
-  };
-  
-  try {
-    const data = await s3.listObjectsV2(params).promise();
-    return data.Contents || [];
-  } catch (error) {
-    console.error('Error listing files from Spaces:', error);
-    throw new Error('Failed to list problem files');
-  }
+  const params = { Bucket: BUCKET_NAME, Prefix: `users/${userId}/problems/` };
+  const data = await s3.listObjectsV2(params).promise();
+  return data.Contents || [];
 }
 
-/**
- * Get a signed URL for downloading a file
- * @param {string} fileKey - File key in the bucket
- * @param {number} expiresIn - URL expiration time in seconds (default: 3600)
- * @returns {Promise<string>} Signed URL
- */
 async function getSignedUrl(fileKey, expiresIn = 3600) {
-  const params = {
-    Bucket: BUCKET_NAME,
-    Key: fileKey,
-    Expires: expiresIn,
-  };
-  
-  try {
-    return s3.getSignedUrl('getObject', params);
-  } catch (error) {
-    console.error('Error generating signed URL:', error);
-    throw new Error('Failed to generate download URL');
-  }
+  const params = { Bucket: BUCKET_NAME, Key: fileKey, Expires: expiresIn };
+  return s3.getSignedUrl('getObject', params);
 }
 
 module.exports = {
+  getJSON,
+  putJSON,
+  deleteKey,
   uploadProblemFile,
   downloadProblemFile,
   deleteProblemFile,

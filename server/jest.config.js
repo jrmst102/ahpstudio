@@ -2,7 +2,6 @@ module.exports = {
   testEnvironment: 'node',
   coveragePathIgnorePatterns: [
     '/node_modules/',
-    '/prisma/',
   ],
   testMatch: [
     '**/tests/**/*.test.js',

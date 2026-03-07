@@ -1,346 +1,217 @@
-const { PrismaClient } = require('@prisma/client');
+const { v4: uuidv4 } = require('uuid');
 const storageService = require('../services/storageService');
 
-const prisma = new PrismaClient();
+// Problem index key per user – stores metadata for all their problems
+function indexKey(userId) {
+  return `users/${userId}/problems/index.json`;
+}
 
-/**
- * Create a new decision problem
- */
+async function loadIndex(userId) {
+  const data = await storageService.getJSON(indexKey(userId));
+  return data || [];
+}
+
+async function saveIndex(userId, problems) {
+  await storageService.putJSON(indexKey(userId), problems);
+}
+
+// ── Controllers ───────────────────────────────────────────────────────
+
 async function createProblem(req, res) {
   try {
     const { title, description } = req.body;
-    
     if (!title) {
-      return res.status(400).json({
-        error: { message: 'Problem title is required' },
-      });
+      return res.status(400).json({ error: { message: 'Problem title is required' } });
     }
-    
-    const problem = await prisma.problem.create({
-      data: {
-        userId: req.user.id,
-        title,
-        description: description || '',
-      },
-    });
-    
+
+    const problems = await loadIndex(req.user.id);
+    const now = new Date().toISOString();
+    const problem = {
+      id: uuidv4(),
+      userId: req.user.id,
+      title,
+      description: description || '',
+      fileKey: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    problems.push(problem);
+    await saveIndex(req.user.id, problems);
+
     res.status(201).json({ problem });
   } catch (error) {
     console.error('Create problem error:', error);
-    res.status(500).json({
-      error: { message: 'Failed to create problem' },
-    });
+    res.status(500).json({ error: { message: 'Failed to create problem' } });
   }
 }
 
-/**
- * List all problems for authenticated user
- */
 async function listProblems(req, res) {
   try {
-    const problems = await prisma.problem.findMany({
-      where: { userId: req.user.id },
-      orderBy: { updatedAt: 'desc' },
-    });
-    
+    const problems = await loadIndex(req.user.id);
+    problems.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
     res.json({ problems });
   } catch (error) {
     console.error('List problems error:', error);
-    res.status(500).json({
-      error: { message: 'Failed to retrieve problems' },
-    });
+    res.status(500).json({ error: { message: 'Failed to retrieve problems' } });
   }
 }
 
-/**
- * Get a specific problem by ID
- */
 async function getProblem(req, res) {
   try {
     const { id } = req.params;
-    
-    const problem = await prisma.problem.findUnique({
-      where: { id },
-    });
-    
+    const problems = await loadIndex(req.user.id);
+    let problem = problems.find(p => p.id === id);
+
+    if (!problem && req.user.role === 'ADMIN') {
+      // Admin may access another user's problem – not supported in flat index
+      return res.status(404).json({ error: { message: 'Problem not found' } });
+    }
     if (!problem) {
-      return res.status(404).json({
-        error: { message: 'Problem not found' },
-      });
+      return res.status(404).json({ error: { message: 'Problem not found' } });
     }
-    
-    // Check ownership
-    if (problem.userId !== req.user.id && req.user.role !== 'ADMIN') {
-      return res.status(403).json({
-        error: { message: 'Access denied' },
-      });
-    }
-    
-    // If file exists, load it
+
     let problemData = null;
     if (problem.fileKey) {
       try {
         problemData = await storageService.downloadProblemFile(problem.fileKey);
-      } catch (error) {
-        console.error('Error loading problem file:', error);
+      } catch (err) {
+        console.error('Error loading problem file:', err);
       }
     }
-    
-    res.json({
-      problem: {
-        ...problem,
-        data: problemData,
-      },
-    });
+
+    res.json({ problem: { ...problem, data: problemData } });
   } catch (error) {
     console.error('Get problem error:', error);
-    res.status(500).json({
-      error: { message: 'Failed to retrieve problem' },
-    });
+    res.status(500).json({ error: { message: 'Failed to retrieve problem' } });
   }
 }
 
-/**
- * Update a problem
- */
 async function updateProblem(req, res) {
   try {
     const { id } = req.params;
     const { title, description } = req.body;
-    
-    const problem = await prisma.problem.findUnique({
-      where: { id },
-    });
-    
-    if (!problem) {
-      return res.status(404).json({
-        error: { message: 'Problem not found' },
-      });
+    const problems = await loadIndex(req.user.id);
+    const idx = problems.findIndex(p => p.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ error: { message: 'Problem not found' } });
     }
-    
-    // Check ownership
-    if (problem.userId !== req.user.id && req.user.role !== 'ADMIN') {
-      return res.status(403).json({
-        error: { message: 'Access denied' },
-      });
-    }
-    
-    const updated = await prisma.problem.update({
-      where: { id },
-      data: {
-        ...(title && { title }),
-        ...(description !== undefined && { description }),
-      },
-    });
-    
-    res.json({ problem: updated });
+
+    if (title) problems[idx].title = title;
+    if (description !== undefined) problems[idx].description = description;
+    problems[idx].updatedAt = new Date().toISOString();
+
+    await saveIndex(req.user.id, problems);
+    res.json({ problem: problems[idx] });
   } catch (error) {
     console.error('Update problem error:', error);
-    res.status(500).json({
-      error: { message: 'Failed to update problem' },
-    });
+    res.status(500).json({ error: { message: 'Failed to update problem' } });
   }
 }
 
-/**
- * Delete a problem
- */
 async function deleteProblem(req, res) {
   try {
     const { id } = req.params;
-    
-    const problem = await prisma.problem.findUnique({
-      where: { id },
-    });
-    
+    const problems = await loadIndex(req.user.id);
+    const problem = problems.find(p => p.id === id);
     if (!problem) {
-      return res.status(404).json({
-        error: { message: 'Problem not found' },
-      });
+      return res.status(404).json({ error: { message: 'Problem not found' } });
     }
-    
-    // Check ownership
-    if (problem.userId !== req.user.id && req.user.role !== 'ADMIN') {
-      return res.status(403).json({
-        error: { message: 'Access denied' },
-      });
-    }
-    
-    // Delete file from storage if exists
+
     if (problem.fileKey) {
       try {
         await storageService.deleteProblemFile(problem.fileKey);
-      } catch (error) {
-        console.error('Error deleting problem file:', error);
+      } catch (err) {
+        console.error('Error deleting problem file:', err);
       }
     }
-    
-    await prisma.problem.delete({
-      where: { id },
-    });
-    
+
+    await saveIndex(req.user.id, problems.filter(p => p.id !== id));
     res.json({ message: 'Problem deleted successfully' });
   } catch (error) {
     console.error('Delete problem error:', error);
-    res.status(500).json({
-      error: { message: 'Failed to delete problem' },
-    });
+    res.status(500).json({ error: { message: 'Failed to delete problem' } });
   }
 }
 
-/**
- * Save problem to .AHP file
- */
 async function saveProblem(req, res) {
   try {
     const { id } = req.params;
     const problemData = req.body;
-    
-    const problem = await prisma.problem.findUnique({
-      where: { id },
-    });
-    
-    if (!problem) {
-      return res.status(404).json({
-        error: { message: 'Problem not found' },
-      });
+    const problems = await loadIndex(req.user.id);
+    const idx = problems.findIndex(p => p.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ error: { message: 'Problem not found' } });
     }
-    
-    // Check ownership
-    if (problem.userId !== req.user.id && req.user.role !== 'ADMIN') {
-      return res.status(403).json({
-        error: { message: 'Access denied' },
-      });
-    }
-    
-    // Upload to Spaces
-    const fileKey = await storageService.uploadProblemFile(
-      req.user.id,
-      id,
-      problemData
-    );
-    
-    // Update problem with file key
-    await prisma.problem.update({
-      where: { id },
-      data: { fileKey },
-    });
-    
-    res.json({
-      message: 'Problem saved successfully',
-      fileKey,
-    });
+
+    const fileKey = await storageService.uploadProblemFile(req.user.id, id, problemData);
+    problems[idx].fileKey = fileKey;
+    problems[idx].updatedAt = new Date().toISOString();
+    await saveIndex(req.user.id, problems);
+
+    res.json({ message: 'Problem saved successfully', fileKey });
   } catch (error) {
     console.error('Save problem error:', error);
-    res.status(500).json({
-      error: { message: 'Failed to save problem' },
-    });
+    res.status(500).json({ error: { message: 'Failed to save problem' } });
   }
 }
 
-/**
- * Download problem .AHP file
- */
 async function downloadProblem(req, res) {
   try {
     const { id } = req.params;
-    
-    const problem = await prisma.problem.findUnique({
-      where: { id },
-    });
-    
+    const problems = await loadIndex(req.user.id);
+    const problem = problems.find(p => p.id === id);
     if (!problem) {
-      return res.status(404).json({
-        error: { message: 'Problem not found' },
-      });
+      return res.status(404).json({ error: { message: 'Problem not found' } });
     }
-    
-    // Check ownership
-    if (problem.userId !== req.user.id && req.user.role !== 'ADMIN') {
-      return res.status(403).json({
-        error: { message: 'Access denied' },
-      });
-    }
-    
     if (!problem.fileKey) {
-      return res.status(404).json({
-        error: { message: 'Problem file not found' },
-      });
+      return res.status(404).json({ error: { message: 'Problem file not found' } });
     }
-    
-    // Get signed URL
+
     const url = await storageService.getSignedUrl(problem.fileKey);
-    
     res.json({ downloadUrl: url });
   } catch (error) {
     console.error('Download problem error:', error);
-    res.status(500).json({
-      error: { message: 'Failed to download problem' },
-    });
+    res.status(500).json({ error: { message: 'Failed to download problem' } });
   }
 }
 
-/**
- * Upload and import .AHP file
- */
 async function uploadProblem(req, res) {
   try {
     const { problemData } = req.body;
-    
     if (!problemData) {
-      return res.status(400).json({
-        error: { message: 'Problem data is required' },
-      });
+      return res.status(400).json({ error: { message: 'Problem data is required' } });
     }
-    
-    // Validate problem data structure
     if (!problemData.problem || !problemData.problem.title) {
-      return res.status(400).json({
-        error: { message: 'Invalid .AHP file format' },
-      });
+      return res.status(400).json({ error: { message: 'Invalid .AHP file format' } });
     }
-    
-    // Create problem
-    const problem = await prisma.problem.create({
-      data: {
-        userId: req.user.id,
-        title: problemData.problem.title,
-        description: problemData.problem.description || '',
-      },
-    });
-    
-    // Upload file
-    const fileKey = await storageService.uploadProblemFile(
-      req.user.id,
-      problem.id,
-      problemData
-    );
-    
-    // Update with file key
-    await prisma.problem.update({
-      where: { id: problem.id },
-      data: { fileKey },
-    });
-    
-    res.status(201).json({
-      message: 'Problem imported successfully',
-      problem,
-    });
+
+    const problems = await loadIndex(req.user.id);
+    const now = new Date().toISOString();
+    const problem = {
+      id: uuidv4(),
+      userId: req.user.id,
+      title: problemData.problem.title,
+      description: problemData.problem.description || '',
+      fileKey: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const fileKey = await storageService.uploadProblemFile(req.user.id, problem.id, problemData);
+    problem.fileKey = fileKey;
+
+    problems.push(problem);
+    await saveIndex(req.user.id, problems);
+
+    res.status(201).json({ message: 'Problem imported successfully', problem });
   } catch (error) {
     console.error('Upload problem error:', error);
-    res.status(500).json({
-      error: { message: 'Failed to import problem' },
-    });
+    res.status(500).json({ error: { message: 'Failed to import problem' } });
   }
 }
 
 module.exports = {
-  createProblem,
-  listProblems,
-  getProblem,
-  updateProblem,
-  deleteProblem,
-  saveProblem,
-  downloadProblem,
-  uploadProblem,
+  createProblem, listProblems, getProblem, updateProblem,
+  deleteProblem, saveProblem, downloadProblem, uploadProblem,
 };

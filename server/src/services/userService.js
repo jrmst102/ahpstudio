@@ -1,209 +1,151 @@
-const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
+const { v4: uuidv4 } = require('uuid');
+const { getJSON, putJSON } = require('./storageService');
 
-const prisma = new PrismaClient();
+const USERS_KEY = 'data/users.json';
 
-/**
- * Create a new user
- * @param {Object} userData - User data
- * @returns {Promise<Object>} Created user (without password hash)
- */
+// ── Internal helpers ──────────────────────────────────────────────────
+
+async function loadUsers() {
+  const users = await getJSON(USERS_KEY);
+  return users || [];
+}
+
+async function saveUsers(users) {
+  await putJSON(USERS_KEY, users);
+}
+
+// ── Public API ────────────────────────────────────────────────────────
+
 async function createUser(userData) {
   const { username, email, password, fullName, role } = userData;
-  
-  // Hash password
+  const users = await loadUsers();
+
   const passwordHash = await bcrypt.hash(password, 12);
-  
-  const user = await prisma.user.create({
-    data: {
-      username,
-      email,
-      passwordHash,
-      fullName,
-      role: role || 'STUDENT',
-    },
-  });
-  
-  // Remove password hash from response
+  const now = new Date().toISOString();
+
+  const user = {
+    id: uuidv4(),
+    username,
+    email,
+    passwordHash,
+    fullName,
+    role: role || 'STUDENT',
+    failedAttempts: 0,
+    isLocked: false,
+    lockedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    lastLoginAt: null,
+  };
+
+  users.push(user);
+  await saveUsers(users);
+
   const { passwordHash: _, ...userWithoutPassword } = user;
   return userWithoutPassword;
 }
 
-/**
- * Find user by username
- * @param {string} username - Username
- * @returns {Promise<Object|null>} User object or null
- */
 async function findUserByUsername(username) {
-  return await prisma.user.findUnique({
-    where: { username },
-  });
+  const users = await loadUsers();
+  return users.find(u => u.username === username) || null;
 }
 
-/**
- * Find user by ID
- * @param {string} userId - User ID
- * @returns {Promise<Object|null>} User object or null
- */
 async function findUserById(userId) {
-  return await prisma.user.findUnique({
-    where: { id: userId },
-  });
+  const users = await loadUsers();
+  return users.find(u => u.id === userId) || null;
 }
 
-/**
- * Update user
- * @param {string} userId - User ID
- * @param {Object} updates - Fields to update
- * @returns {Promise<Object>} Updated user
- */
 async function updateUser(userId, updates) {
-  const user = await prisma.user.update({
-    where: { id: userId },
-    data: updates,
-  });
-  
-  const { passwordHash: _, ...userWithoutPassword } = user;
+  const users = await loadUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) throw new Error('User not found');
+
+  users[idx] = { ...users[idx], ...updates, updatedAt: new Date().toISOString() };
+  await saveUsers(users);
+
+  const { passwordHash: _, ...userWithoutPassword } = users[idx];
   return userWithoutPassword;
 }
 
-/**
- * Delete user and all associated data
- * @param {string} userId - User ID
- * @returns {Promise<void>}
- */
 async function deleteUser(userId) {
-  await prisma.user.delete({
-    where: { id: userId },
-  });
+  let users = await loadUsers();
+  users = users.filter(u => u.id !== userId);
+  await saveUsers(users);
 }
 
-/**
- * List all users (admin only)
- * @returns {Promise<Array>} Array of users
- */
 async function listAllUsers() {
-  const users = await prisma.user.findMany({
-    orderBy: { createdAt: 'desc' },
-  });
-  
-  return users.map(user => {
-    const { passwordHash: _, ...userWithoutPassword } = user;
-    return userWithoutPassword;
-  });
+  const users = await loadUsers();
+  return users
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .map(({ passwordHash, ...rest }) => rest);
 }
 
-/**
- * Increment failed login attempts
- * @param {string} userId - User ID
- * @returns {Promise<number>} New failed attempts count
- */
 async function incrementFailedAttempts(userId) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-  });
-  
-  const newCount = user.failedAttempts + 1;
-  
-  // Lock account after 3 failed attempts
+  const users = await loadUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) throw new Error('User not found');
+
+  const newCount = users[idx].failedAttempts + 1;
+  users[idx].failedAttempts = newCount;
   if (newCount >= 3) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        failedAttempts: newCount,
-        isLocked: true,
-        lockedAt: new Date(),
-      },
-    });
-  } else {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { failedAttempts: newCount },
-    });
+    users[idx].isLocked = true;
+    users[idx].lockedAt = new Date().toISOString();
   }
-  
+  users[idx].updatedAt = new Date().toISOString();
+  await saveUsers(users);
   return newCount;
 }
 
-/**
- * Reset failed login attempts
- * @param {string} userId - User ID
- * @returns {Promise<void>}
- */
 async function resetFailedAttempts(userId) {
-  await prisma.user.update({
-    where: { id: userId },
-    data: { failedAttempts: 0 },
-  });
+  const users = await loadUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) return;
+  users[idx].failedAttempts = 0;
+  users[idx].updatedAt = new Date().toISOString();
+  await saveUsers(users);
 }
 
-/**
- * Unlock user account
- * @param {string} userId - User ID
- * @returns {Promise<Object>} Updated user
- */
 async function unlockAccount(userId) {
-  const user = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      isLocked: false,
-      lockedAt: null,
-      failedAttempts: 0,
-    },
-  });
-  
-  const { passwordHash: _, ...userWithoutPassword } = user;
+  const users = await loadUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) throw new Error('User not found');
+
+  users[idx].isLocked = false;
+  users[idx].lockedAt = null;
+  users[idx].failedAttempts = 0;
+  users[idx].updatedAt = new Date().toISOString();
+  await saveUsers(users);
+
+  const { passwordHash: _, ...userWithoutPassword } = users[idx];
   return userWithoutPassword;
 }
 
-/**
- * Update last login timestamp
- * @param {string} userId - User ID
- * @returns {Promise<void>}
- */
 async function updateLastLogin(userId) {
-  await prisma.user.update({
-    where: { id: userId },
-    data: { lastLoginAt: new Date() },
-  });
+  const users = await loadUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) return;
+  users[idx].lastLoginAt = new Date().toISOString();
+  users[idx].updatedAt = new Date().toISOString();
+  await saveUsers(users);
 }
 
-/**
- * Change user password
- * @param {string} userId - User ID
- * @param {string} newPassword - New password
- * @returns {Promise<void>}
- */
 async function changePassword(userId, newPassword) {
-  const passwordHash = await bcrypt.hash(newPassword, 12);
-  
-  await prisma.user.update({
-    where: { id: userId },
-    data: { passwordHash },
-  });
+  const users = await loadUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) throw new Error('User not found');
+
+  users[idx].passwordHash = await bcrypt.hash(newPassword, 12);
+  users[idx].updatedAt = new Date().toISOString();
+  await saveUsers(users);
 }
 
-/**
- * Verify password
- * @param {string} plainPassword - Plain text password
- * @param {string} hashedPassword - Hashed password
- * @returns {Promise<boolean>} True if password matches
- */
 async function verifyPassword(plainPassword, hashedPassword) {
   return await bcrypt.compare(plainPassword, hashedPassword);
 }
 
 module.exports = {
-  createUser,
-  findUserByUsername,
-  findUserById,
-  updateUser,
-  deleteUser,
-  listAllUsers,
-  incrementFailedAttempts,
-  resetFailedAttempts,
-  unlockAccount,
-  updateLastLogin,
-  changePassword,
-  verifyPassword,
+  createUser, findUserByUsername, findUserById, updateUser, deleteUser,
+  listAllUsers, incrementFailedAttempts, resetFailedAttempts, unlockAccount,
+  updateLastLogin, changePassword, verifyPassword,
 };

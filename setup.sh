@@ -32,43 +32,18 @@ else
 fi
 echo ""
 
-# Install root dependencies
-echo "Installing root dependencies..."
-npm install
-echo ""
-
 # Install server dependencies
 echo "Installing server dependencies..."
 cd server
 npm install
 echo ""
 
-# Generate Prisma client
-echo "Generating Prisma client..."
-npx prisma generate
+# Seed admin user to DigitalOcean Spaces
+echo "Seeding admin user..."
+npm run seed
 echo ""
-
-# Run migrations (if DATABASE_URL is set)
-if grep -q "postgresql://" ../.env; then
-    echo "Running database migrations..."
-    npx prisma migrate dev --name init
-    echo ""
-    
-    echo "Seeding database with admin user..."
-    npx prisma db seed
-    echo ""
-    echo "✅ Database setup complete"
-    echo ""
-    echo "Default Admin Credentials:"
-    echo "  Username: admin"
-    echo "  Password: AHPAdmin2026!"
-    echo "  ⚠️  CHANGE THIS PASSWORD ON FIRST LOGIN!"
-    echo ""
-else
-    echo "⚠️  DATABASE_URL not configured in .env"
-    echo "   Skipping database setup"
-    echo ""
-fi
+echo "✅ Data store initialised"
+echo ""
 
 cd ..
 
