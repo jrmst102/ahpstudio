@@ -13,6 +13,9 @@ const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
+// Trust proxy (required behind App Platform / load balancer)
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet());
 app.use(cors({
@@ -32,7 +35,19 @@ app.use('/api/v1/admin', adminRoutes);
 
 // Health check
 app.get('/api/v1/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    env: {
+      SPACES_ENDPOINT: process.env.SPACES_ENDPOINT ? 'SET' : 'MISSING',
+      SPACES_KEY: process.env.SPACES_KEY ? 'SET' : 'MISSING',
+      SPACES_SECRET: process.env.SPACES_SECRET ? 'SET' : 'MISSING',
+      SPACES_BUCKET: process.env.SPACES_BUCKET ? 'SET' : 'MISSING',
+      SPACES_REGION: process.env.SPACES_REGION ? 'SET' : 'MISSING',
+      JWT_SECRET: process.env.JWT_SECRET ? 'SET' : 'MISSING',
+      NODE_ENV: process.env.NODE_ENV || 'not set',
+    },
+  });
 });
 
 // Error handling middleware
