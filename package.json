@@ -6,14 +6,13 @@
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
-    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
-    "build": "cd client && npm install && npm run build",
-    "dev:server": "cd server && npm run dev",
-    "dev:client": "cd client && npm start",
-    "build:client": "cd client && npm run build",
-    "start": "cd server && npm start",
-    "test": "cd server && npm test",
-    "seed": "cd server && npm run seed"
+    "install:all": "npm install --prefix server && npm install --prefix client",
+    "build": "npm install --prefix client && npm run build --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm start --prefix client",
+    "start": "node server/src/app.js",
+    "test": "npm test --prefix server",
+    "seed": "node server/prisma/seed.js"
   },
   "workspaces": [
     "client",
