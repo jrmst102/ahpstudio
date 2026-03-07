@@ -1,28 +1,34 @@
 # AHP Studio
 
-**Version:** 2.0  
+**Version:** 2.0.1  
 **Author:** Dr. Jose Mendoza  
 **Copyright 2026 by Dr. Jose Mendoza.**
 
 ## Overview
-AHP Studio is a web-based decision support application implementing the Analytic Hierarchy Process (AHP).
+AHP Studio is a web-based decision support application implementing the Analytic Hierarchy Process (AHP). It enables structured multi-criteria decision making through pairwise comparisons, priority computation, consistency analysis, and sensitivity analysis — all from a modern browser interface.
+
+**Live:** [https://squid-app-owz3p.ondigitalocean.app](https://squid-app-owz3p.ondigitalocean.app)
 
 ## Features
-- Decision Problem Management (create, save, load, delete)
-- Criteria Hierarchy (up to 10 criteria, 7 sub-criteria each)
-- Alternatives (up to 12 per problem)
-- Pairwise Comparisons (Saaty's 1-9 scale)
-- Priority Computation (eigenvector method with consistency checking)
-- Sensitivity Analysis (4 modes)
-- User Management (admin panel)
-- JWT Authentication with account lockout
+- **Decision Problem Management** — Create, save, load, delete, and import/export `.AHP` files
+- **Criteria Management** — Add up to 10 criteria per problem
+- **Alternatives Management** — Add up to 12 alternatives per problem
+- **Pairwise Comparisons** — Interactive slider-based comparison matrices using Saaty's 1–9 scale
+- **Priority Computation** — Eigenvector method with automatic consistency ratio (CR) checking
+- **Global Synthesis** — Normalized and idealized global priority rankings
+- **Sensitivity Analysis** — Vary criterion weights to detect rank reversals
+- **User Management** — Admin panel for user CRUD, account unlock, password reset
+- **Authentication** — JWT with httpOnly cookies, bcrypt hashing, 3-attempt account lockout
 
 ## Technology Stack
-- **Backend:** Node.js 20 LTS, Express.js, JWT, DigitalOcean Spaces (all data storage)
-- **Frontend:** React 18+, Tailwind CSS, Recharts/D3.js, Axios
+- **Backend:** Node.js, Express.js 4.18, JWT, bcrypt
+- **Frontend:** React 18, Tailwind CSS, Axios
+- **Storage:** DigitalOcean Spaces (S3-compatible) — no database required
+- **Hosting:** DigitalOcean App Platform
+- **Computation:** mathjs (eigenvector, consistency metrics)
 
 ## Prerequisites
-- Node.js 20+
+- Node.js 18+
 - DigitalOcean Spaces bucket (S3-compatible)
 - Git
 
@@ -42,11 +48,12 @@ AHP Studio is a web-based decision support application implementing the Analytic
 
 3. Install dependencies and seed admin user:
    ```bash
-   cd server && npm install && npm run seed && cd ..
+   npm install
    cd client && npm install && cd ..
+   node server/prisma/seed.js
    ```
 
-4. Start development servers:
+4. Start development:
    ```bash
    # Terminal 1 (Backend)
    cd server && npm run dev
@@ -60,6 +67,14 @@ AHP Studio is a web-based decision support application implementing the Analytic
    - Password: `AHPAdmin2026!`
    - **Change this password on first login!**
 
+## Deployment (DigitalOcean App Platform)
+
+1. Push to GitHub — App Platform auto-deploys from `main`.
+2. Set environment variables in the App Platform dashboard:
+   - `JWT_SECRET`, `SPACES_ENDPOINT`, `SPACES_KEY`, `SPACES_SECRET`, `SPACES_BUCKET`, `SPACES_REGION`, `NODE_ENV`, `APP_URL`
+3. Build command: `npm run build` (installs client deps and builds React)
+4. Run command: `npm start` (runs `node server/src/app.js`)
+
 ## Data Storage
 All data is stored in DigitalOcean Spaces (S3-compatible):
 - **Users:** `data/users.json`
@@ -69,13 +84,21 @@ All data is stored in DigitalOcean Spaces (S3-compatible):
 No database server is required.
 
 ## API Endpoints
-- **Auth:** login, logout, me, change-password
-- **Problems:** CRUD + save/download/upload .AHP files
-- **Compute:** priorities, consistency, synthesize, sensitivity
-- **Admin:** user CRUD, unlock, reset-password
+
+| Group | Endpoints |
+|-------|-----------|
+| **Auth** | `POST /api/v1/auth/login`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/change-password` |
+| **Problems** | `GET/POST /api/v1/problems`, `GET/PUT/DELETE /problems/:id`, `POST /problems/:id/save`, `GET /problems/:id/download`, `POST /problems/upload` |
+| **Compute** | `POST /api/v1/compute/priorities`, `POST /compute/consistency`, `POST /compute/synthesize`, `POST /compute/sensitivity` |
+| **Admin** | `GET/POST /api/v1/admin/users`, `PUT/DELETE /admin/users/:id`, `POST /admin/users/:id/unlock`, `POST /admin/users/:id/reset-password` |
+| **Health** | `GET /api/v1/health` |
 
 ## Security
-- bcrypt (cost 12), JWT 24h expiry, 3-attempt lockout, HTTPS, CORS, rate limiting
+- bcrypt (cost factor 12) password hashing
+- JWT with 24h expiry and httpOnly secure cookies
+- 3-attempt account lockout
+- HTTPS, CORS, Helmet, rate limiting
+- Express `trust proxy` enabled for reverse proxy deployments
 
 ---
 Copyright 2026 by Dr. Jose Mendoza. All rights reserved.
