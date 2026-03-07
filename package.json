@@ -13,9 +13,5 @@
     "start": "node server/src/app.js",
     "test": "npm test --prefix server",
     "seed": "node server/prisma/seed.js"
-  },
-  "workspaces": [
-    "client",
-    "server"
-  ]
+  }
 }
