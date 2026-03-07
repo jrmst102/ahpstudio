@@ -6,12 +6,26 @@
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
-    "install:all": "npm install --prefix server && npm install --prefix client",
     "build": "npm install --prefix client && npm run build --prefix client",
+    "start": "node server/src/app.js",
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm start --prefix client",
-    "start": "node server/src/app.js",
     "test": "npm test --prefix server",
     "seed": "node server/prisma/seed.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "bcrypt": "^5.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "dotenv": "^16.3.1",
+    "aws-sdk": "^2.1518.0",
+    "mathjs": "^12.2.1",
+    "uuid": "^9.0.1",
+    "cookie-parser": "^1.4.6"
   }
 }
