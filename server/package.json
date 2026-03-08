@@ -19,7 +19,8 @@
     "express-rate-limit": "^7.1.5",
     "express-validator": "^7.0.1",
     "dotenv": "^16.3.1",
-    "aws-sdk": "^2.1518.0",
+    "@aws-sdk/client-s3": "^3.525.0",
+    "@aws-sdk/s3-request-presigner": "^3.525.0",
     "mathjs": "^12.2.1",
     "uuid": "^9.0.1",
     "cookie-parser": "^1.4.6"

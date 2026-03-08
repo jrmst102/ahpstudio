@@ -84,6 +84,8 @@ const ProblemEditor = () => {
   const [newSubCriterion, setNewSubCriterion] = useState({});
   // Track which criteria are expanded in the UI
   const [expandedCriteria, setExpandedCriteria] = useState({});
+  // Alt matrices under sub-criteria: { "criterion::subCriterion": matrix }
+  const [subCriteriaAltMatrices, setSubCriteriaAltMatrices] = useState({});
 
   // Computed results
   const [criteriaWeights, setCriteriaWeights] = useState(null);
@@ -116,6 +118,7 @@ const ProblemEditor = () => {
       setAltMatrices(d.altMatrices || {});
       setSubCriteria(d.subCriteria || {});
       setSubCriteriaMatrices(d.subCriteriaMatrices || {});
+      setSubCriteriaAltMatrices(d.subCriteriaAltMatrices || {});
     } else {
       setCriteria([]);
       setAlternatives([]);
@@ -123,11 +126,12 @@ const ProblemEditor = () => {
       setAltMatrices({});
       setSubCriteria({});
       setSubCriteriaMatrices({});
+      setSubCriteriaAltMatrices({});
     }
   }, [currentProblem]);
 
   /* ─── Auto-save helper ─── */
-  const doSave = useCallback(async (crit, alts, cMat, aMats, subCrit, subCritMats) => {
+  const doSave = useCallback(async (crit, alts, cMat, aMats, subCrit, subCritMats, subCritAltMats) => {
     if (!problemId) return;
     setSaving(true);
     setError('');
@@ -140,21 +144,20 @@ const ProblemEditor = () => {
         altMatrices: aMats,
         subCriteria: subCrit || subCriteria,
         subCriteriaMatrices: subCritMats || subCriteriaMatrices,
+        subCriteriaAltMatrices: subCritAltMats || subCriteriaAltMatrices,
       };
       await saveProblem(problemId, payload);
-      setSuccess('Saved');
-      setTimeout(() => setSuccess(''), 2000);
     } catch {
       setError('Failed to save');
     } finally {
       setSaving(false);
     }
-  }, [problemId, title, description, saveProblem, subCriteria, subCriteriaMatrices]);
+  }, [problemId, title, description, saveProblem, subCriteria, subCriteriaMatrices, subCriteriaAltMatrices]);
 
-  const handleSave = () => doSave(criteria, alternatives, criteriaMatrix, altMatrices);
-
-  /* ─── Download locally ─── */
-  const handleDownloadLocal = () => {
+  const handleSave = async () => {
+    // Save to server in the background
+    doSave(criteria, alternatives, criteriaMatrix, altMatrices);
+    // Download locally to the user's computer
     const data = {
       title,
       description,
@@ -164,6 +167,7 @@ const ProblemEditor = () => {
       altMatrices,
       subCriteria,
       subCriteriaMatrices,
+      subCriteriaAltMatrices,
       criteriaWeights,
       altWeights,
       globalResults,
@@ -179,6 +183,8 @@ const ProblemEditor = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    setSuccess('File saved to your computer');
+    setTimeout(() => setSuccess(''), 3000);
   };
 
   /* ─── Definition ─── */
@@ -235,7 +241,13 @@ const ProblemEditor = () => {
     const newSubCritMats = { ...subCriteriaMatrices };
     delete newSubCritMats[removedName];
     setSubCriteriaMatrices(newSubCritMats);
-    doSave(updated, alternatives, newMat, newAltMats, newSubCrit, newSubCritMats);
+    // Clean up sub-criteria alt matrices for the removed criterion
+    const newSubCritAltMats = { ...subCriteriaAltMatrices };
+    Object.keys(newSubCritAltMats).forEach(key => {
+      if (key.startsWith(removedName + '::')) delete newSubCritAltMats[key];
+    });
+    setSubCriteriaAltMatrices(newSubCritAltMats);
+    doSave(updated, alternatives, newMat, newAltMats, newSubCrit, newSubCritMats, newSubCritAltMats);
   };
 
   /* ─── Sub-criteria ─── */
@@ -263,6 +275,7 @@ const ProblemEditor = () => {
   };
 
   const removeSubCriterion = (criterionName, idx) => {
+    const removedSubName = (subCriteria[criterionName] || [])[idx];
     const existing = subCriteria[criterionName] || [];
     const updated = existing.filter((_, i) => i !== idx);
     const newSubCrit = { ...subCriteria, [criterionName]: updated };
@@ -287,7 +300,12 @@ const ProblemEditor = () => {
     if (updated.length === 0) delete newSubCritMats[criterionName];
     setSubCriteriaMatrices(newSubCritMats);
 
-    doSave(criteria, alternatives, criteriaMatrix, altMatrices, newSubCrit, newSubCritMats);
+    // Remove alt matrix for the removed sub-criterion
+    const newSubCritAltMats = { ...subCriteriaAltMatrices };
+    if (removedSubName) delete newSubCritAltMats[`${criterionName}::${removedSubName}`];
+    setSubCriteriaAltMatrices(newSubCritAltMats);
+
+    doSave(criteria, alternatives, criteriaMatrix, altMatrices, newSubCrit, newSubCritMats, newSubCritAltMats);
   };
 
   const setSubCriteriaCell = (criterionName, i, j, val) => {
@@ -297,6 +315,15 @@ const ProblemEditor = () => {
     m[i][j] = val;
     m[j][i] = 1 / val;
     setSubCriteriaMatrices({ ...subCriteriaMatrices, [criterionName]: m });
+  };
+
+  const setSubCritAltCell = (criterionName, subCritName, i, j, val) => {
+    const key = `${criterionName}::${subCritName}`;
+    const old = subCriteriaAltMatrices[key] || emptyMatrix(alternatives.length);
+    const m = old.map(r => [...r]);
+    m[i][j] = val;
+    m[j][i] = 1 / val;
+    setSubCriteriaAltMatrices({ ...subCriteriaAltMatrices, [key]: m });
   };
 
   /* ─── Alternatives ─── */
@@ -317,8 +344,19 @@ const ProblemEditor = () => {
       newAltMats[c] = m;
     });
     setAltMatrices(newAltMats);
+    // Extend sub-criteria alt matrices
+    const newSubCritAltMats = { ...subCriteriaAltMatrices };
+    Object.keys(newSubCritAltMats).forEach(key => {
+      const old = newSubCritAltMats[key] || emptyMatrix(alternatives.length);
+      const m = emptyMatrix(updated.length);
+      for (let i = 0; i < old.length; i++)
+        for (let j = 0; j < old.length; j++)
+          m[i][j] = old[i][j];
+      newSubCritAltMats[key] = m;
+    });
+    setSubCriteriaAltMatrices(newSubCritAltMats);
     setNewAlternative('');
-    doSave(criteria, updated, criteriaMatrix, newAltMats);
+    doSave(criteria, updated, criteriaMatrix, newAltMats, undefined, undefined, newSubCritAltMats);
   };
 
   const removeAlternative = (idx) => {
@@ -342,7 +380,26 @@ const ProblemEditor = () => {
       newAltMats[c] = m;
     });
     setAltMatrices(newAltMats);
-    doSave(criteria, updated, criteriaMatrix, newAltMats);
+    // Shrink sub-criteria alt matrices
+    const newSubCritAltMats = { ...subCriteriaAltMatrices };
+    Object.keys(newSubCritAltMats).forEach(key => {
+      const old = newSubCritAltMats[key] || emptyMatrix(alternatives.length);
+      const m = emptyMatrix(updated.length);
+      let ri = 0;
+      for (let ii = 0; ii < alternatives.length; ii++) {
+        if (ii === idx) continue;
+        let ci = 0;
+        for (let jj = 0; jj < alternatives.length; jj++) {
+          if (jj === idx) continue;
+          m[ri][ci] = old[ii][jj];
+          ci++;
+        }
+        ri++;
+      }
+      newSubCritAltMats[key] = m;
+    });
+    setSubCriteriaAltMatrices(newSubCritAltMats);
+    doSave(criteria, updated, criteriaMatrix, newAltMats, undefined, undefined, newSubCritAltMats);
   };
 
   /* ─── Matrix editing ─── */
@@ -377,18 +434,49 @@ const ProblemEditor = () => {
       const cCons = await computeService.computeConsistency(criteriaMatrix);
       setCriteriaCR(cCons);
 
-      // 2. Alt weights per criterion
+      // 2. Alt weights per criterion (with sub-criteria support)
       const aWeights = {};
       const aCRs = {};
       for (const c of criteria) {
-        const mat = altMatrices[c] || emptyMatrix(alternatives.length);
-        const aRes = await computeService.computePriorities(mat);
-        const w = {};
-        alternatives.forEach((a, i) => { w[a] = aRes.priorities[i]; });
-        aWeights[c] = w;
+        const subs = subCriteria[c] || [];
+        if (subs.length >= 2) {
+          // Criterion has sub-criteria: compute sub-criteria weights, then alt weights per sub-criterion
+          const scMat = subCriteriaMatrices[c] || emptyMatrix(subs.length);
+          const scRes = await computeService.computePriorities(scMat);
+          const scWeights = {};
+          subs.forEach((sc, i) => { scWeights[sc] = scRes.priorities[i]; });
 
-        const aCons = await computeService.computeConsistency(mat);
-        aCRs[c] = aCons;
+          const scCons = await computeService.computeConsistency(scMat);
+          aCRs[`${c} (sub-criteria)`] = scCons;
+
+          // Compute alt weights per sub-criterion
+          const effectiveAltWeights = {};
+          alternatives.forEach(a => { effectiveAltWeights[a] = 0; });
+
+          for (const sc of subs) {
+            const key = `${c}::${sc}`;
+            const scAltMat = subCriteriaAltMatrices[key] || emptyMatrix(alternatives.length);
+            const scAltRes = await computeService.computePriorities(scAltMat);
+
+            const scAltCons = await computeService.computeConsistency(scAltMat);
+            aCRs[`${c} > ${sc}`] = scAltCons;
+
+            alternatives.forEach((a, i) => {
+              effectiveAltWeights[a] += scWeights[sc] * scAltRes.priorities[i];
+            });
+          }
+          aWeights[c] = effectiveAltWeights;
+        } else {
+          // No sub-criteria: compare alternatives directly against criterion
+          const mat = altMatrices[c] || emptyMatrix(alternatives.length);
+          const aRes = await computeService.computePriorities(mat);
+          const w = {};
+          alternatives.forEach((a, i) => { w[a] = aRes.priorities[i]; });
+          aWeights[c] = w;
+
+          const aCons = await computeService.computeConsistency(mat);
+          aCRs[c] = aCons;
+        }
       }
       setAltWeights(aWeights);
       setAltCRs(aCRs);
@@ -531,7 +619,6 @@ const ProblemEditor = () => {
         <div className="flex items-center gap-3">
           {saving && <span className="text-sm text-nyu-text-secondary">Saving…</span>}
           <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')}>← Dashboard</Button>
-          <Button variant="outline" size="sm" onClick={handleDownloadLocal}>Download</Button>
           <Button size="sm" onClick={handleSave} disabled={saving}>Save</Button>
         </div>
       </div>
@@ -750,19 +837,38 @@ const ProblemEditor = () => {
                   );
                 })}
 
-                {/* Alternatives per criterion */}
-                {criteria.map(c => (
-                  <div key={c} className="mb-8">
-                    <h4 className="text-lg font-semibold text-nyu-text-primary mb-3">
-                      Alternatives w.r.t. <span className="text-nyu-violet">"{c}"</span>
-                    </h4>
-                    {renderMatrix(
-                      alternatives,
-                      altMatrices[c] || emptyMatrix(alternatives.length),
-                      (i, j, val) => setAltCell(c, i, j, val)
-                    )}
-                  </div>
-                ))}
+                {/* Alternatives per criterion (or per sub-criterion when sub-criteria exist) */}
+                {criteria.map(c => {
+                  const subs = subCriteria[c] || [];
+                  if (subs.length >= 2) {
+                    // Show alt comparisons per sub-criterion
+                    return subs.map(sc => (
+                      <div key={`${c}::${sc}`} className="mb-8">
+                        <h4 className="text-lg font-semibold text-nyu-text-primary mb-3">
+                          Alternatives w.r.t. <span className="text-nyu-violet">"{c}" &gt; "{sc}"</span>
+                        </h4>
+                        {renderMatrix(
+                          alternatives,
+                          subCriteriaAltMatrices[`${c}::${sc}`] || emptyMatrix(alternatives.length),
+                          (i, j, val) => setSubCritAltCell(c, sc, i, j, val)
+                        )}
+                      </div>
+                    ));
+                  }
+                  // No sub-criteria: compare alternatives directly
+                  return (
+                    <div key={c} className="mb-8">
+                      <h4 className="text-lg font-semibold text-nyu-text-primary mb-3">
+                        Alternatives w.r.t. <span className="text-nyu-violet">"{c}"</span>
+                      </h4>
+                      {renderMatrix(
+                        alternatives,
+                        altMatrices[c] || emptyMatrix(alternatives.length),
+                        (i, j, val) => setAltCell(c, i, j, val)
+                      )}
+                    </div>
+                  );
+                })}
 
                 <div className="flex gap-3 mt-4">
                   <Button onClick={handleSave} variant="outline" disabled={saving}>Save Comparisons</Button>

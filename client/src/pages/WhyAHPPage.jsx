@@ -1,15 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import Header from '../components/layout/Header';
-import Footer from '../components/layout/Footer';
 
 const WhyAHPPage = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header />
-      <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <button onClick={() => navigate(-1)} className="text-nyu-violet hover:underline text-sm mb-6 inline-block">← Back</button>
         <div className="bg-white rounded-lg shadow-md p-8 prose prose-lg max-w-none">
           <h1 className="text-3xl font-bold text-nyu-text-primary mb-6">Why AHP Still Matters in the Age of Generative AI</h1>
@@ -99,8 +95,6 @@ const WhyAHPPage = () => {
 
           <p className="text-sm text-nyu-text-secondary mt-8 pt-4 border-t border-gray-200">Copyright 2026 by Dr. Jose Mendoza.</p>
         </div>
-      </main>
-      <Footer />
     </div>
   );
 };
