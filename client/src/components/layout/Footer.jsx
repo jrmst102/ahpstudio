@@ -11,6 +11,9 @@ const Footer = () => {
           <p className="text-sm text-nyu-text-secondary">
             Copyright 2026 by Dr. Jose Mendoza.
           </p>
+          <p className="text-sm text-nyu-text-secondary">
+            v 1.1.3
+          </p>
           <div className="flex gap-4">
             <button
               onClick={() => navigate('/terms')}
