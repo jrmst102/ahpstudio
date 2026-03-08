@@ -3,11 +3,11 @@ const ahpEngine = require('../src/services/ahpEngine');
 describe('AHP Engine Tests', () => {
   describe('Eigenvector Computation', () => {
     test('should compute eigenvector for 3x3 consistent matrix', () => {
-      // Example from Saaty's book - perfectly consistent matrix
+      // Perfectly consistent matrix: a13 = a12 * a23
       const matrix = [
-        [1, 3, 5],
+        [1, 3, 9],
         [1/3, 1, 3],
-        [1/5, 1/3, 1],
+        [1/9, 1/3, 1],
       ];
       
       const result = ahpEngine.computePriorities(matrix);
@@ -49,11 +49,11 @@ describe('AHP Engine Tests', () => {
 
   describe('Consistency Checking', () => {
     test('should identify inconsistent matrix', () => {
-      // Deliberately inconsistent matrix
+      // Deliberately inconsistent matrix: a12*a23=7*5=35, but a13=1/5
       const matrix = [
-        [1, 5, 9],
-        [1/5, 1, 2],
-        [1/9, 1/2, 1],
+        [1, 7, 1/5],
+        [1/7, 1, 5],
+        [5, 1/5, 1],
       ];
       
       const result = ahpEngine.computePriorities(matrix);
