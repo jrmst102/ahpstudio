@@ -1,6 +1,6 @@
 # AHP Studio
 
-**Version:** 2.0.1  
+**Version:** 1.1.3  
 **Author:** Dr. Jose Mendoza  
 **Copyright 2026 by Dr. Jose Mendoza.**
 
@@ -11,19 +11,21 @@ AHP Studio is a web-based decision support application implementing the Analytic
 
 ## Features
 - **Decision Problem Management** — Create, save, load, delete, and import/export `.AHP` files
-- **Criteria Management** — Add up to 10 criteria per problem
+- **Criteria & Sub-criteria** — Add up to 10 criteria, each with up to 6 sub-criteria for hierarchical structuring
 - **Alternatives Management** — Add up to 12 alternatives per problem
-- **Pairwise Comparisons** — Interactive slider-based comparison matrices using Saaty's 1–9 scale
+- **Pairwise Comparisons** — Interactive slider-based comparison matrices using Saaty's 1–9 scale with directional indicators (row ◀ / ▶ column)
 - **Priority Computation** — Eigenvector method with automatic consistency ratio (CR) checking
-- **Global Synthesis** — Normalized and idealized global priority rankings
+- **Global Synthesis** — Normalized and idealized global priority rankings with sub-criteria weight aggregation
 - **Sensitivity Analysis** — Vary criterion weights to detect rank reversals
+- **Local File Save** — Save `.AHP` files directly to your computer; upload them to resume later
 - **User Management** — Admin panel for user CRUD, account unlock, password reset
-- **Authentication** — JWT with httpOnly cookies, bcrypt hashing, 3-attempt account lockout
+- **Authentication** — JWT with httpOnly cookies, bcryptjs hashing, 3-attempt account lockout
+- **Information Pages** — About, What is AHP?, AHP in the Age of GenAI, Help, Terms and Conditions, Privacy Policy
 
 ## Technology Stack
-- **Backend:** Node.js, Express.js 4.18, JWT, bcrypt
+- **Backend:** Node.js, Express.js 4.18, JWT, bcryptjs
 - **Frontend:** React 18, Tailwind CSS, Axios
-- **Storage:** DigitalOcean Spaces (S3-compatible) — no database required
+- **Storage:** DigitalOcean Spaces (@aws-sdk/client-s3 v3) — no database required
 - **Hosting:** DigitalOcean App Platform
 - **Computation:** mathjs (eigenvector, consistency metrics)
 
@@ -72,7 +74,7 @@ AHP Studio is a web-based decision support application implementing the Analytic
 1. Push to GitHub — App Platform auto-deploys from `main`.
 2. Set environment variables in the App Platform dashboard:
    - `JWT_SECRET`, `SPACES_ENDPOINT`, `SPACES_KEY`, `SPACES_SECRET`, `SPACES_BUCKET`, `SPACES_REGION`, `NODE_ENV`, `APP_URL`
-3. Build command: `npm run build` (installs client deps and builds React)
+3. Build command: `npm run build` (client is pre-built and committed; server deps installed by `npm ci`)
 4. Run command: `npm start` (runs `node server/src/app.js`)
 
 ## Data Storage
@@ -94,7 +96,7 @@ No database server is required.
 | **Health** | `GET /api/v1/health` |
 
 ## Security
-- bcrypt (cost factor 12) password hashing
+- bcryptjs (cost factor 12) password hashing
 - JWT with 24h expiry and httpOnly secure cookies
 - 3-attempt account lockout
 - HTTPS, CORS, Helmet, rate limiting
