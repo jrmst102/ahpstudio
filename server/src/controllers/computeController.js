@@ -141,9 +141,40 @@ function sensitivityAnalysis(req, res) {
   }
 }
 
+/**
+ * Aggregate multiple comparison matrices using weighted geometric mean
+ */
+function aggregateMatrices(req, res) {
+  try {
+    const { matrices, weights } = req.body;
+
+    if (!matrices || !Array.isArray(matrices) || matrices.length === 0) {
+      return res.status(400).json({
+        error: { message: 'At least one matrix is required' },
+      });
+    }
+    if (!weights || !Array.isArray(weights) || weights.length !== matrices.length) {
+      return res.status(400).json({
+        error: { message: 'Weights array must match number of matrices' },
+      });
+    }
+
+    const aggregated = ahpEngine.aggregateMatrices(matrices, weights);
+    const result = ahpEngine.computePriorities(aggregated);
+
+    res.json({ aggregated, ...result });
+  } catch (error) {
+    console.error('Aggregate matrices error:', error);
+    res.status(500).json({
+      error: { message: error.message || 'Failed to aggregate matrices' },
+    });
+  }
+}
+
 module.exports = {
   computePriorities,
   computeConsistency,
   synthesize,
   sensitivityAnalysis,
+  aggregateMatrices,
 };

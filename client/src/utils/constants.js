@@ -7,6 +7,7 @@ export const MAX_ALTERNATIVES = 12;
 export const MAX_CRITERIA = 10;
 export const MAX_SUB_CRITERIA = 7;
 export const MAX_HIERARCHY_DEPTH = 3;
+export const MAX_RESPONDENTS = 6;
 
 // Saaty's fundamental scale
 export const SAATY_SCALE = [

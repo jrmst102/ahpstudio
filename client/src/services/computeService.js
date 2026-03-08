@@ -55,6 +55,17 @@ const computeService = {
     });
     return response.data;
   },
+
+  /**
+   * Aggregate multiple comparison matrices with weighted geometric mean
+   * @param {Array<Array<Array<number>>>} matrices - Array of comparison matrices
+   * @param {Array<number>} weights - Respondent weights
+   * @returns {Promise<Object>} Aggregated matrix and priorities
+   */
+  async aggregateMatrices(matrices, weights) {
+    const response = await api.post('/compute/aggregate', { matrices, weights });
+    return response.data;
+  },
 };
 
 export default computeService;

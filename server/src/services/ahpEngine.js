@@ -244,6 +244,39 @@ function updateMatrix(matrix, i, j, value) {
   return newMatrix;
 }
 
+/**
+ * Aggregate multiple pairwise comparison matrices using the weighted geometric mean.
+ * Each cell: aggregated[i][j] = ∏( matrices[k][i][j] ^ normalizedWeights[k] )
+ * @param {Array<Array<Array<number>>>} matrices - Array of comparison matrices
+ * @param {Array<number>} weights - Respondent weights (will be normalised internally)
+ * @returns {Array<Array<number>>} Aggregated matrix
+ */
+function aggregateMatrices(matrices, weights) {
+  if (!matrices || matrices.length === 0) {
+    throw new Error('At least one matrix is required for aggregation');
+  }
+  if (matrices.length === 1) return matrices[0].map(row => [...row]);
+
+  const n = matrices[0].length;
+  const totalW = weights.reduce((a, b) => a + b, 0);
+  const normW = weights.map(w => w / totalW);
+
+  const result = Array.from({ length: n }, () => Array(n).fill(1));
+
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (i === j) { result[i][j] = 1; continue; }
+      let product = 1;
+      for (let k = 0; k < matrices.length; k++) {
+        const val = matrices[k]?.[i]?.[j] || 1;
+        product *= Math.pow(val, normW[k]);
+      }
+      result[i][j] = product;
+    }
+  }
+  return result;
+}
+
 module.exports = {
   computePriorities,
   computeEigenvector,
@@ -254,5 +287,6 @@ module.exports = {
   validateMatrix,
   createIdentityMatrix,
   updateMatrix,
+  aggregateMatrices,
   RI_TABLE,
 };

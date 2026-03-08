@@ -11,5 +11,6 @@ router.post('/priorities', computeController.computePriorities);
 router.post('/consistency', computeController.computeConsistency);
 router.post('/synthesize', computeController.synthesize);
 router.post('/sensitivity', computeController.sensitivityAnalysis);
+router.post('/aggregate', computeController.aggregateMatrices);
 
 module.exports = router;

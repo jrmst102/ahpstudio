@@ -4,6 +4,9 @@ import { useProblem } from '../context/ProblemContext';
 import computeService from '../services/computeService';
 import Alert from '../components/common/Alert';
 import Button from '../components/common/Button';
+import ComparisonWizard from '../components/comparisons/ComparisonWizard';
+import RespondentManager from '../components/respondents/RespondentManager';
+import DecisionReport from '../components/report/DecisionReport';
 import { MAX_CRITERIA, MAX_ALTERNATIVES, CHART_COLORS } from '../utils/constants';
 
 const MAX_SUB_CRITERIA = 6;
@@ -99,6 +102,14 @@ const ProblemEditor = () => {
   const [sensitivityCriterion, setSensitivityCriterion] = useState('');
   const [sensitivityData, setSensitivityData] = useState(null);
 
+  // Respondents
+  const [respondents, setRespondents] = useState([]);
+  const [respondentData, setRespondentData] = useState({}); // { respId: { criteriaMatrix, altMatrices, subCriteriaMatrices, subCriteriaAltMatrices } }
+  const [activeRespondentId, setActiveRespondentId] = useState(null);
+
+  // Wizard / matrix toggle for comparisons
+  const [comparisonMode, setComparisonMode] = useState('wizard'); // 'wizard' or 'matrix'
+
   /* ─── Load problem data ─── */
   useEffect(() => {
     if (problemId) {
@@ -119,6 +130,8 @@ const ProblemEditor = () => {
       setSubCriteria(d.subCriteria || {});
       setSubCriteriaMatrices(d.subCriteriaMatrices || {});
       setSubCriteriaAltMatrices(d.subCriteriaAltMatrices || {});
+      setRespondents(d.respondents || []);
+      setRespondentData(d.respondentData || {});
     } else {
       setCriteria([]);
       setAlternatives([]);
@@ -127,11 +140,13 @@ const ProblemEditor = () => {
       setSubCriteria({});
       setSubCriteriaMatrices({});
       setSubCriteriaAltMatrices({});
+      setRespondents([]);
+      setRespondentData({});
     }
   }, [currentProblem]);
 
   /* ─── Auto-save helper ─── */
-  const doSave = useCallback(async (crit, alts, cMat, aMats, subCrit, subCritMats, subCritAltMats) => {
+  const doSave = useCallback(async (crit, alts, cMat, aMats, subCrit, subCritMats, subCritAltMats, resps, respData) => {
     if (!problemId) return;
     setSaving(true);
     setError('');
@@ -145,6 +160,8 @@ const ProblemEditor = () => {
         subCriteria: subCrit || subCriteria,
         subCriteriaMatrices: subCritMats || subCriteriaMatrices,
         subCriteriaAltMatrices: subCritAltMats || subCriteriaAltMatrices,
+        respondents: resps || respondents,
+        respondentData: respData || respondentData,
       };
       await saveProblem(problemId, payload);
     } catch {
@@ -152,7 +169,7 @@ const ProblemEditor = () => {
     } finally {
       setSaving(false);
     }
-  }, [problemId, title, description, saveProblem, subCriteria, subCriteriaMatrices, subCriteriaAltMatrices]);
+  }, [problemId, title, description, saveProblem, subCriteria, subCriteriaMatrices, subCriteriaAltMatrices, respondents, respondentData]);
 
   const handleSave = async () => {
     // Save to server in the background
@@ -168,6 +185,8 @@ const ProblemEditor = () => {
       subCriteria,
       subCriteriaMatrices,
       subCriteriaAltMatrices,
+      respondents,
+      respondentData,
       criteriaWeights,
       altWeights,
       globalResults,
@@ -418,6 +437,77 @@ const ProblemEditor = () => {
     setAltMatrices({ ...altMatrices, [criterion]: m });
   };
 
+  /* ─── Respondent data editing ─── */
+  const getRespondentMatrix = (respId, key) => {
+    return respondentData[respId]?.[key];
+  };
+
+  const setRespondentCriteriaCell = (respId, i, j, val) => {
+    const rd = respondentData[respId] || {};
+    const old = rd.criteriaMatrix || emptyMatrix(criteria.length);
+    const m = old.map(r => [...r]);
+    m[i][j] = val;
+    m[j][i] = 1 / val;
+    setRespondentData({
+      ...respondentData,
+      [respId]: { ...rd, criteriaMatrix: m },
+    });
+  };
+
+  const setRespondentAltCell = (respId, criterion, i, j, val) => {
+    const rd = respondentData[respId] || {};
+    const aMats = rd.altMatrices || {};
+    const old = aMats[criterion] || emptyMatrix(alternatives.length);
+    const m = old.map(r => [...r]);
+    m[i][j] = val;
+    m[j][i] = 1 / val;
+    setRespondentData({
+      ...respondentData,
+      [respId]: { ...rd, altMatrices: { ...aMats, [criterion]: m } },
+    });
+  };
+
+  const setRespondentSubCriteriaCell = (respId, criterionName, i, j, val) => {
+    const rd = respondentData[respId] || {};
+    const scMats = rd.subCriteriaMatrices || {};
+    const subs = subCriteria[criterionName] || [];
+    const old = scMats[criterionName] || emptyMatrix(subs.length);
+    const m = old.map(r => [...r]);
+    m[i][j] = val;
+    m[j][i] = 1 / val;
+    setRespondentData({
+      ...respondentData,
+      [respId]: { ...rd, subCriteriaMatrices: { ...scMats, [criterionName]: m } },
+    });
+  };
+
+  const setRespondentSubCritAltCell = (respId, criterionName, subCritName, i, j, val) => {
+    const rd = respondentData[respId] || {};
+    const scAltMats = rd.subCriteriaAltMatrices || {};
+    const key = `${criterionName}::${subCritName}`;
+    const old = scAltMats[key] || emptyMatrix(alternatives.length);
+    const m = old.map(r => [...r]);
+    m[i][j] = val;
+    m[j][i] = 1 / val;
+    setRespondentData({
+      ...respondentData,
+      [respId]: { ...rd, subCriteriaAltMatrices: { ...scAltMats, [key]: m } },
+    });
+  };
+
+  /* ─── Respondent management callbacks ─── */
+  const handleRespondentsChange = (updated) => {
+    setRespondents(updated);
+    // Clean up data for removed respondents
+    const ids = new Set(updated.map(r => r.id));
+    const cleanedData = {};
+    Object.keys(respondentData).forEach(id => {
+      if (ids.has(id)) cleanedData[id] = respondentData[id];
+    });
+    setRespondentData(cleanedData);
+    doSave(criteria, alternatives, criteriaMatrix, altMatrices, undefined, undefined, undefined, updated, cleanedData);
+  };
+
   /* ─── Compute ─── */
   const handleCompute = async () => {
     if (criteria.length < 2) { setError('Need at least 2 criteria'); return; }
@@ -425,13 +515,64 @@ const ProblemEditor = () => {
     setComputing(true);
     setError('');
     try {
+      // Determine effective matrices — aggregate if respondents exist
+      const hasRespondents = respondents.length > 0;
+      let effectiveCriteriaMatrix = criteriaMatrix;
+      let effectiveAltMatrices = { ...altMatrices };
+      let effectiveSubCriteriaMatrices = { ...subCriteriaMatrices };
+      let effectiveSubCriteriaAltMatrices = { ...subCriteriaAltMatrices };
+
+      if (hasRespondents) {
+        const weights = respondents.map(r => r.weight);
+
+        // Aggregate criteria matrix
+        const critMats = respondents.map(r => {
+          const rd = respondentData[r.id] || {};
+          return rd.criteriaMatrix || emptyMatrix(criteria.length);
+        });
+        const aggCrit = await computeService.aggregateMatrices(critMats, weights);
+        effectiveCriteriaMatrix = aggCrit.aggregated;
+
+        // Aggregate alt matrices per criterion
+        for (const c of criteria) {
+          const subs = subCriteria[c] || [];
+          if (subs.length >= 2) {
+            // Aggregate sub-criteria matrix
+            const scMats = respondents.map(r => {
+              const rd = respondentData[r.id] || {};
+              return rd.subCriteriaMatrices?.[c] || emptyMatrix(subs.length);
+            });
+            const aggSc = await computeService.aggregateMatrices(scMats, weights);
+            effectiveSubCriteriaMatrices[c] = aggSc.aggregated;
+
+            // Aggregate sub-criteria alt matrices
+            for (const sc of subs) {
+              const key = `${c}::${sc}`;
+              const scAltMats = respondents.map(r => {
+                const rd = respondentData[r.id] || {};
+                return rd.subCriteriaAltMatrices?.[key] || emptyMatrix(alternatives.length);
+              });
+              const aggScAlt = await computeService.aggregateMatrices(scAltMats, weights);
+              effectiveSubCriteriaAltMatrices[key] = aggScAlt.aggregated;
+            }
+          } else {
+            const mats = respondents.map(r => {
+              const rd = respondentData[r.id] || {};
+              return rd.altMatrices?.[c] || emptyMatrix(alternatives.length);
+            });
+            const aggAlt = await computeService.aggregateMatrices(mats, weights);
+            effectiveAltMatrices[c] = aggAlt.aggregated;
+          }
+        }
+      }
+
       // 1. Criteria weights
-      const cRes = await computeService.computePriorities(criteriaMatrix);
+      const cRes = await computeService.computePriorities(effectiveCriteriaMatrix);
       const cWeights = {};
       criteria.forEach((c, i) => { cWeights[c] = cRes.priorities[i]; });
       setCriteriaWeights(cWeights);
 
-      const cCons = await computeService.computeConsistency(criteriaMatrix);
+      const cCons = await computeService.computeConsistency(effectiveCriteriaMatrix);
       setCriteriaCR(cCons);
 
       // 2. Alt weights per criterion (with sub-criteria support)
@@ -440,8 +581,7 @@ const ProblemEditor = () => {
       for (const c of criteria) {
         const subs = subCriteria[c] || [];
         if (subs.length >= 2) {
-          // Criterion has sub-criteria: compute sub-criteria weights, then alt weights per sub-criterion
-          const scMat = subCriteriaMatrices[c] || emptyMatrix(subs.length);
+          const scMat = effectiveSubCriteriaMatrices[c] || emptyMatrix(subs.length);
           const scRes = await computeService.computePriorities(scMat);
           const scWeights = {};
           subs.forEach((sc, i) => { scWeights[sc] = scRes.priorities[i]; });
@@ -449,13 +589,12 @@ const ProblemEditor = () => {
           const scCons = await computeService.computeConsistency(scMat);
           aCRs[`${c} (sub-criteria)`] = scCons;
 
-          // Compute alt weights per sub-criterion
           const effectiveAltWeights = {};
           alternatives.forEach(a => { effectiveAltWeights[a] = 0; });
 
           for (const sc of subs) {
             const key = `${c}::${sc}`;
-            const scAltMat = subCriteriaAltMatrices[key] || emptyMatrix(alternatives.length);
+            const scAltMat = effectiveSubCriteriaAltMatrices[key] || emptyMatrix(alternatives.length);
             const scAltRes = await computeService.computePriorities(scAltMat);
 
             const scAltCons = await computeService.computeConsistency(scAltMat);
@@ -467,8 +606,7 @@ const ProblemEditor = () => {
           }
           aWeights[c] = effectiveAltWeights;
         } else {
-          // No sub-criteria: compare alternatives directly against criterion
-          const mat = altMatrices[c] || emptyMatrix(alternatives.length);
+          const mat = effectiveAltMatrices[c] || emptyMatrix(alternatives.length);
           const aRes = await computeService.computePriorities(mat);
           const w = {};
           alternatives.forEach((a, i) => { w[a] = aRes.priorities[i]; });
@@ -513,9 +651,11 @@ const ProblemEditor = () => {
     { id: 'definition', label: 'Definition', icon: '📝' },
     { id: 'criteria', label: 'Criteria', icon: '📊' },
     { id: 'alternatives', label: 'Alternatives', icon: '🎯' },
+    { id: 'respondents', label: 'Respondents', icon: '👥' },
     { id: 'comparisons', label: 'Comparisons', icon: '⚖️' },
     { id: 'results', label: 'Results', icon: '📈' },
     { id: 'sensitivity', label: 'Sensitivity', icon: '🔍' },
+    { id: 'report', label: 'Report', icon: '📄' },
   ];
 
   if (loading && !currentProblem) {
