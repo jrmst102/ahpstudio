@@ -6,6 +6,8 @@ import Alert from '../components/common/Alert';
 import Button from '../components/common/Button';
 import { MAX_CRITERIA, MAX_ALTERNATIVES, SAATY_SCALE, CR_THRESHOLD, CHART_COLORS } from '../utils/constants';
 
+const MAX_SUB_CRITERIA = 6;
+
 /* ───────────────────────── helpers ───────────────────────── */
 
 function emptyMatrix(n) {
@@ -74,6 +76,15 @@ const ProblemEditor = () => {
   const [newCriterion, setNewCriterion] = useState('');
   const [newAlternative, setNewAlternative] = useState('');
 
+  // Sub-criteria: { criterionName: [subCrit1, subCrit2, ...] }
+  const [subCriteria, setSubCriteria] = useState({});
+  // Sub-criteria matrices: { criterionName: matrix }
+  const [subCriteriaMatrices, setSubCriteriaMatrices] = useState({});
+  // New sub-criterion input per criterion
+  const [newSubCriterion, setNewSubCriterion] = useState({});
+  // Track which criteria are expanded in the UI
+  const [expandedCriteria, setExpandedCriteria] = useState({});
+
   // Computed results
   const [criteriaWeights, setCriteriaWeights] = useState(null);
   const [criteriaCR, setCriteriaCR] = useState(null);
@@ -103,16 +114,20 @@ const ProblemEditor = () => {
       setAlternatives(d.alternatives || []);
       setCriteriaMatrix(d.criteriaMatrix || emptyMatrix((d.criteria || []).length));
       setAltMatrices(d.altMatrices || {});
+      setSubCriteria(d.subCriteria || {});
+      setSubCriteriaMatrices(d.subCriteriaMatrices || {});
     } else {
       setCriteria([]);
       setAlternatives([]);
       setCriteriaMatrix([]);
       setAltMatrices({});
+      setSubCriteria({});
+      setSubCriteriaMatrices({});
     }
   }, [currentProblem]);
 
   /* ─── Auto-save helper ─── */
-  const doSave = useCallback(async (crit, alts, cMat, aMats) => {
+  const doSave = useCallback(async (crit, alts, cMat, aMats, subCrit, subCritMats) => {
     if (!problemId) return;
     setSaving(true);
     setError('');
@@ -123,6 +138,8 @@ const ProblemEditor = () => {
         alternatives: alts,
         criteriaMatrix: cMat,
         altMatrices: aMats,
+        subCriteria: subCrit || subCriteria,
+        subCriteriaMatrices: subCritMats || subCriteriaMatrices,
       };
       await saveProblem(problemId, payload);
       setSuccess('Saved');
@@ -132,9 +149,37 @@ const ProblemEditor = () => {
     } finally {
       setSaving(false);
     }
-  }, [problemId, title, description, saveProblem]);
+  }, [problemId, title, description, saveProblem, subCriteria, subCriteriaMatrices]);
 
   const handleSave = () => doSave(criteria, alternatives, criteriaMatrix, altMatrices);
+
+  /* ─── Download locally ─── */
+  const handleDownloadLocal = () => {
+    const data = {
+      title,
+      description,
+      criteria,
+      alternatives,
+      criteriaMatrix,
+      altMatrices,
+      subCriteria,
+      subCriteriaMatrices,
+      criteriaWeights,
+      altWeights,
+      globalResults,
+      exportedAt: new Date().toISOString(),
+    };
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(title || 'untitled').replace(/[^a-zA-Z0-9_-]/g, '_')}.AHP`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   /* ─── Definition ─── */
   const handleUpdateDefinition = async () => {
@@ -184,7 +229,74 @@ const ProblemEditor = () => {
     const newAltMats = { ...altMatrices };
     delete newAltMats[removedName];
     setAltMatrices(newAltMats);
-    doSave(updated, alternatives, newMat, newAltMats);
+    const newSubCrit = { ...subCriteria };
+    delete newSubCrit[removedName];
+    setSubCriteria(newSubCrit);
+    const newSubCritMats = { ...subCriteriaMatrices };
+    delete newSubCritMats[removedName];
+    setSubCriteriaMatrices(newSubCritMats);
+    doSave(updated, alternatives, newMat, newAltMats, newSubCrit, newSubCritMats);
+  };
+
+  /* ─── Sub-criteria ─── */
+  const addSubCriterion = (criterionName) => {
+    const name = (newSubCriterion[criterionName] || '').trim();
+    if (!name) return;
+    const existing = subCriteria[criterionName] || [];
+    if (existing.includes(name)) return;
+    if (existing.length >= MAX_SUB_CRITERIA) { setError(`Maximum ${MAX_SUB_CRITERIA} sub-criteria per criterion`); return; }
+    const updated = [...existing, name];
+    const newSubCrit = { ...subCriteria, [criterionName]: updated };
+    setSubCriteria(newSubCrit);
+
+    // Build new sub-criteria matrix
+    const oldMat = subCriteriaMatrices[criterionName] || emptyMatrix(existing.length);
+    const newMat = emptyMatrix(updated.length);
+    for (let i = 0; i < oldMat.length; i++)
+      for (let j = 0; j < oldMat.length; j++)
+        newMat[i][j] = oldMat[i][j];
+    const newSubCritMats = { ...subCriteriaMatrices, [criterionName]: newMat };
+    setSubCriteriaMatrices(newSubCritMats);
+
+    setNewSubCriterion({ ...newSubCriterion, [criterionName]: '' });
+    doSave(criteria, alternatives, criteriaMatrix, altMatrices, newSubCrit, newSubCritMats);
+  };
+
+  const removeSubCriterion = (criterionName, idx) => {
+    const existing = subCriteria[criterionName] || [];
+    const updated = existing.filter((_, i) => i !== idx);
+    const newSubCrit = { ...subCriteria, [criterionName]: updated };
+    if (updated.length === 0) delete newSubCrit[criterionName];
+    setSubCriteria(newSubCrit);
+
+    // Rebuild sub-criteria matrix
+    const oldMat = subCriteriaMatrices[criterionName] || emptyMatrix(existing.length);
+    const newMat = emptyMatrix(updated.length);
+    let ri = 0;
+    for (let i = 0; i < existing.length; i++) {
+      if (i === idx) continue;
+      let ci = 0;
+      for (let j = 0; j < existing.length; j++) {
+        if (j === idx) continue;
+        newMat[ri][ci] = oldMat[i][j];
+        ci++;
+      }
+      ri++;
+    }
+    const newSubCritMats = { ...subCriteriaMatrices, [criterionName]: newMat };
+    if (updated.length === 0) delete newSubCritMats[criterionName];
+    setSubCriteriaMatrices(newSubCritMats);
+
+    doSave(criteria, alternatives, criteriaMatrix, altMatrices, newSubCrit, newSubCritMats);
+  };
+
+  const setSubCriteriaCell = (criterionName, i, j, val) => {
+    const subs = subCriteria[criterionName] || [];
+    const old = subCriteriaMatrices[criterionName] || emptyMatrix(subs.length);
+    const m = old.map(r => [...r]);
+    m[i][j] = val;
+    m[j][i] = 1 / val;
+    setSubCriteriaMatrices({ ...subCriteriaMatrices, [criterionName]: m });
   };
 
   /* ─── Alternatives ─── */
@@ -355,7 +467,7 @@ const ProblemEditor = () => {
             {items.map((rowItem, i) => (
               <tr key={i}>
                 <td className="p-2 border border-gray-200 bg-nyu-violet-ultra font-medium text-sm">{rowItem}</td>
-                {items.map((_, j) => {
+                {items.map((colItem, j) => {
                   if (i === j) {
                     return <td key={j} className="p-2 border border-gray-200 bg-gray-100 text-center text-sm font-mono">1</td>;
                   }
@@ -363,18 +475,35 @@ const ProblemEditor = () => {
                     return <td key={j} className="p-2 border border-gray-200 bg-gray-50 text-center text-sm font-mono text-gray-500">{formatValue(matrix[i]?.[j] || 1)}</td>;
                   }
                   const val = matrix[i]?.[j] || 1;
+                  const sliderIdx = valToSlider(val);
+                  // Map slider 0..16 to display -8..+8 where negative = row preferred, positive = column preferred
+                  const displayVal = sliderIdx - 8;
+                  const label = displayVal < 0
+                    ? `← ${SLIDER_LABELS[sliderIdx].label} (${rowItem})`
+                    : displayVal > 0
+                      ? `${SLIDER_LABELS[sliderIdx].label} (${colItem}) →`
+                      : '1 (Equal)';
                   return (
                     <td key={j} className="p-2 border border-gray-200 text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="text-sm font-semibold text-nyu-violet">{formatValue(val)}</span>
-                        <input
-                          type="range"
-                          min={0}
-                          max={16}
-                          value={valToSlider(val)}
-                          onChange={e => setCell(i, j, sliderToVal(Number(e.target.value)))}
-                          className="w-20 accent-nyu-violet"
-                        />
+                      <div className="flex flex-col items-center gap-1 min-w-[160px]">
+                        <span className={`text-xs font-semibold ${displayVal < 0 ? 'text-blue-700' : displayVal > 0 ? 'text-orange-700' : 'text-gray-600'}`}>
+                          {label}
+                        </span>
+                        <div className="flex items-center gap-1 w-full">
+                          <span className="text-[10px] text-blue-600 whitespace-nowrap">◀ Row</span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={16}
+                            value={sliderIdx}
+                            onChange={e => setCell(i, j, sliderToVal(Number(e.target.value)))}
+                            className="flex-1 accent-nyu-violet"
+                          />
+                          <span className="text-[10px] text-orange-600 whitespace-nowrap">Col ▶</span>
+                        </div>
+                        <span className="text-[10px] text-gray-400">
+                          {formatValue(val)}
+                        </span>
                       </div>
                     </td>
                   );
@@ -402,6 +531,7 @@ const ProblemEditor = () => {
         <div className="flex items-center gap-3">
           {saving && <span className="text-sm text-nyu-text-secondary">Saving…</span>}
           <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')}>← Dashboard</Button>
+          <Button variant="outline" size="sm" onClick={handleDownloadLocal}>Download</Button>
           <Button size="sm" onClick={handleSave} disabled={saving}>Save</Button>
         </div>
       </div>
@@ -488,13 +618,56 @@ const ProblemEditor = () => {
             {criteria.length === 0 ? (
               <p className="text-gray-400 italic">No criteria added yet.</p>
             ) : (
-              <ul className="space-y-2 max-w-md">
-                {criteria.map((c, i) => (
-                  <li key={i} className="flex items-center justify-between bg-nyu-violet-ultra rounded-lg px-4 py-3">
-                    <span className="font-medium text-nyu-text-primary">{i + 1}. {c}</span>
-                    <button onClick={() => removeCriterion(i)} className="text-red-600 hover:text-red-800 text-sm font-medium">Remove</button>
-                  </li>
-                ))}
+              <ul className="space-y-3 max-w-lg">
+                {criteria.map((c, i) => {
+                  const subs = subCriteria[c] || [];
+                  const isExpanded = expandedCriteria[c];
+                  return (
+                    <li key={i}>
+                      <div className="flex items-center justify-between bg-nyu-violet-ultra rounded-lg px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setExpandedCriteria({ ...expandedCriteria, [c]: !isExpanded })}
+                            className="text-nyu-violet hover:text-nyu-violet-dark text-sm font-bold w-6"
+                          >
+                            {isExpanded ? '▾' : '▸'}
+                          </button>
+                          <span className="font-medium text-nyu-text-primary">{i + 1}. {c}</span>
+                          {subs.length > 0 && (
+                            <span className="text-xs text-nyu-text-secondary">({subs.length} sub-criteria)</span>
+                          )}
+                        </div>
+                        <button onClick={() => removeCriterion(i)} className="text-red-600 hover:text-red-800 text-sm font-medium">Remove</button>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="ml-8 mt-2 space-y-2">
+                          {subs.map((sc, si) => (
+                            <div key={si} className="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2">
+                              <span className="text-sm text-nyu-text-primary">{i + 1}.{si + 1} {sc}</span>
+                              <button onClick={() => removeSubCriterion(c, si)} className="text-red-500 hover:text-red-700 text-xs font-medium">Remove</button>
+                            </div>
+                          ))}
+                          {subs.length < MAX_SUB_CRITERIA && (
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={newSubCriterion[c] || ''}
+                                onChange={e => setNewSubCriterion({ ...newSubCriterion, [c]: e.target.value })}
+                                onKeyDown={e => e.key === 'Enter' && addSubCriterion(c)}
+                                className="input flex-1 text-sm"
+                                placeholder={`Add sub-criterion under "${c}"`}
+                                maxLength={60}
+                              />
+                              <Button size="sm" onClick={() => addSubCriterion(c)} disabled={!(newSubCriterion[c] || '').trim()}>Add</Button>
+                            </div>
+                          )}
+                          <p className="text-xs text-nyu-text-secondary">{subs.length}/{MAX_SUB_CRITERIA} sub-criteria</p>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
             <p className="mt-4 text-sm text-nyu-text-secondary">{criteria.length}/{MAX_CRITERIA} criteria</p>
@@ -543,7 +716,7 @@ const ProblemEditor = () => {
           <div>
             <h3 className="text-xl font-semibold text-nyu-text-primary mb-2">Pairwise Comparisons</h3>
             <p className="text-nyu-text-secondary mb-1">
-              Use sliders to compare items using Saaty's 1–9 scale. Values &gt; 1 mean the row item is more important; values &lt; 1 mean the column item is more important.
+              Use sliders to compare items using Saaty's 1–9 scale. Drag left (negative) to favor the <strong>row</strong> item; drag right (positive) to favor the <strong>column</strong> item. Center = equal importance.
             </p>
             <p className="text-xs text-nyu-text-secondary mb-6">
               1 = Equal &nbsp;|&nbsp; 3 = Moderate &nbsp;|&nbsp; 5 = Strong &nbsp;|&nbsp; 7 = Very Strong &nbsp;|&nbsp; 9 = Extreme
@@ -558,6 +731,24 @@ const ProblemEditor = () => {
                   <h4 className="text-lg font-semibold text-nyu-text-primary mb-3">Criteria Comparison</h4>
                   {renderMatrix(criteria, criteriaMatrix, setCriteriaCell)}
                 </div>
+
+                {/* Sub-criteria comparisons */}
+                {criteria.map(c => {
+                  const subs = subCriteria[c] || [];
+                  if (subs.length < 2) return null;
+                  return (
+                    <div key={`sub-${c}`} className="mb-8">
+                      <h4 className="text-lg font-semibold text-nyu-text-primary mb-3">
+                        Sub-criteria under <span className="text-nyu-violet">"{c}"</span>
+                      </h4>
+                      {renderMatrix(
+                        subs,
+                        subCriteriaMatrices[c] || emptyMatrix(subs.length),
+                        (i, j, val) => setSubCriteriaCell(c, i, j, val)
+                      )}
+                    </div>
+                  );
+                })}
 
                 {/* Alternatives per criterion */}
                 {criteria.map(c => (

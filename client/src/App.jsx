@@ -7,6 +7,12 @@ import Dashboard from './pages/Dashboard';
 import ProblemEditor from './pages/ProblemEditor';
 import AdminPanel from './pages/AdminPanel';
 import AccountSettings from './pages/AccountSettings';
+import AboutPage from './pages/AboutPage';
+import WhatIsAHPPage from './pages/WhatIsAHPPage';
+import WhyAHPPage from './pages/WhyAHPPage';
+import HelpPage from './pages/HelpPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 function App() {
@@ -48,6 +54,40 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/about"
+              element={
+                <ProtectedRoute>
+                  <AboutPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/what-is-ahp"
+              element={
+                <ProtectedRoute>
+                  <WhatIsAHPPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/why-ahp"
+              element={
+                <ProtectedRoute>
+                  <WhyAHPPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/help"
+              element={
+                <ProtectedRoute>
+                  <HelpPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </ProblemProvider>

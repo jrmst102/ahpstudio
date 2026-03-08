@@ -34,6 +34,34 @@ const Header = () => {
             >
               Dashboard
             </button>
+
+            <button
+              onClick={() => navigate('/about')}
+              className="text-white hover:text-nyu-violet-ultra transition-colors"
+            >
+              About
+            </button>
+
+            <button
+              onClick={() => navigate('/what-is-ahp')}
+              className="text-white hover:text-nyu-violet-ultra transition-colors"
+            >
+              What is AHP?
+            </button>
+
+            <button
+              onClick={() => navigate('/why-ahp')}
+              className="text-white hover:text-nyu-violet-ultra transition-colors"
+            >
+              AHP in the Age of GenAI
+            </button>
+
+            <button
+              onClick={() => navigate('/help')}
+              className="text-white hover:text-nyu-violet-ultra transition-colors"
+            >
+              Help
+            </button>
             
             {isAdmin() && (
               <button
