@@ -30,35 +30,35 @@ const Header = () => {
           <nav className="flex items-center gap-6">
             <button
               onClick={() => navigate('/dashboard')}
-              className="text-sm text-white hover:text-nyu-violet-ultra transition-colors"
+              className="text-xs text-white hover:text-nyu-violet-ultra transition-colors"
             >
               Dashboard
             </button>
 
             <button
               onClick={() => navigate('/about')}
-              className="text-sm text-white hover:text-nyu-violet-ultra transition-colors"
+              className="text-xs text-white hover:text-nyu-violet-ultra transition-colors"
             >
               About
             </button>
 
             <button
               onClick={() => navigate('/what-is-ahp')}
-              className="text-sm text-white hover:text-nyu-violet-ultra transition-colors"
+              className="text-xs text-white hover:text-nyu-violet-ultra transition-colors"
             >
               What is AHP?
             </button>
 
             <button
               onClick={() => navigate('/why-ahp')}
-              className="text-sm text-white hover:text-nyu-violet-ultra transition-colors"
+              className="text-xs text-white hover:text-nyu-violet-ultra transition-colors"
             >
               AHP in the Age of GenAI
             </button>
 
             <button
               onClick={() => navigate('/help')}
-              className="text-sm text-white hover:text-nyu-violet-ultra transition-colors"
+              className="text-xs text-white hover:text-nyu-violet-ultra transition-colors"
             >
               Help
             </button>
@@ -66,7 +66,7 @@ const Header = () => {
             {isAdmin() && (
               <button
                 onClick={() => navigate('/admin')}
-                className="text-sm text-white hover:text-nyu-violet-ultra transition-colors"
+                className="text-xs text-white hover:text-nyu-violet-ultra transition-colors"
               >
                 Admin Panel
               </button>
@@ -74,7 +74,7 @@ const Header = () => {
 
             <button
               onClick={() => navigate('/settings')}
-              className="text-sm text-white hover:text-nyu-violet-ultra transition-colors"
+              className="text-xs text-white hover:text-nyu-violet-ultra transition-colors"
             >
               Settings
             </button>
