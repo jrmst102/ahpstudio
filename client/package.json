@@ -4,23 +4,24 @@
   "description": "AHP Studio Frontend",
   "private": true,
   "dependencies": {
+    "axios": "^1.6.5",
+    "d3": "^7.8.5",
     "react": "^18.2.0",
+    "react-beautiful-dnd": "^13.1.1",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.1",
     "react-scripts": "5.0.1",
-    "axios": "^1.6.5",
+    "react-slider": "^2.0.6",
     "recharts": "^2.10.3",
-    "d3": "^7.8.5",
-    "react-beautiful-dnd": "^13.1.1",
-    "react-slider": "^2.0.6"
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.1",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.2",
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.33",
-    "@testing-library/react": "^14.1.2",
-    "@testing-library/jest-dom": "^6.1.5",
-    "@testing-library/user-event": "^14.5.2"
+    "tailwindcss": "^3.4.1"
   },
   "scripts": {
     "start": "react-scripts start",
