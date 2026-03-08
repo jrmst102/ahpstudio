@@ -277,6 +277,101 @@ function aggregateMatrices(matrices, weights) {
   return result;
 }
 
+/**
+ * Compute Kendall's coefficient of concordance (W) across multiple rankers.
+ * Each row of `rankings` is one ranker's ranking vector (lower = better rank).
+ * @param {Array<Array<number>>} rankings - k × n matrix (k rankers, n items)
+ * @returns {{ W: number, chiSquared: number, pValue: number, k: number, n: number }}
+ */
+function computeKendallW(rankings) {
+  const k = rankings.length; // number of rankers
+  if (k < 2) return { W: 1, chiSquared: 0, pValue: 1, k, n: rankings[0]?.length || 0 };
+  const n = rankings[0].length; // number of items
+  if (n < 2) return { W: 1, chiSquared: 0, pValue: 1, k, n };
+
+  // Compute column sums of ranks
+  const Rj = Array(n).fill(0);
+  for (let j = 0; j < n; j++) {
+    for (let i = 0; i < k; i++) {
+      Rj[j] += rankings[i][j];
+    }
+  }
+
+  const meanR = k * (n + 1) / 2;
+
+  // S = sum of squared deviations of column totals from their mean
+  let S = 0;
+  for (let j = 0; j < n; j++) {
+    S += (Rj[j] - meanR) * (Rj[j] - meanR);
+  }
+
+  // W = 12S / (k^2 * (n^3 - n))
+  const W = (12 * S) / (k * k * (n * n * n - n));
+  const clampedW = Math.max(0, Math.min(1, W));
+
+  // Chi-squared approximation: χ² = k(n-1)W
+  const chiSquared = k * (n - 1) * clampedW;
+  const df = n - 1;
+
+  // Approximate p-value using Wilson-Hilferty chi-squared approximation
+  const pValue = approxChiSquaredPValue(chiSquared, df);
+
+  return { W: clampedW, chiSquared, pValue, k, n };
+}
+
+/**
+ * Approximate upper-tail p-value for chi-squared distribution
+ * using the Wilson-Hilferty normal approximation.
+ */
+function approxChiSquaredPValue(chiSq, df) {
+  if (df <= 0) return 1;
+  if (chiSq <= 0) return 1;
+  // Wilson-Hilferty transformation: Z = ((chi²/df)^(1/3) - (1 - 2/(9*df))) / sqrt(2/(9*df))
+  const k = 2 / (9 * df);
+  const z = Math.pow(chiSq / df, 1 / 3) - (1 - k);
+  const denom = Math.sqrt(k);
+  if (denom === 0) return chiSq > df ? 0 : 1;
+  const Z = z / denom;
+  // Standard normal CDF approximation (Abramowitz & Stegun)
+  return 1 - normalCDF(Z);
+}
+
+function normalCDF(x) {
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+  const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  const t = 1 / (1 + p * Math.abs(x));
+  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x / 2);
+  return 0.5 * (1 + sign * y);
+}
+
+/**
+ * Convert priority vectors to rank vectors for Kendall's W computation.
+ * Higher priority → lower rank (rank 1 = best).
+ * Handles tied ranks by assigning average rank.
+ * @param {Array<Array<number>>} priorityVectors - k × n matrix
+ * @returns {Array<Array<number>>} k × n rank matrix
+ */
+function prioritiesToRanks(priorityVectors) {
+  return priorityVectors.map(pv => {
+    const indexed = pv.map((v, i) => ({ v, i }));
+    indexed.sort((a, b) => b.v - a.v); // descending priority
+    const ranks = Array(pv.length);
+    let r = 1;
+    let i = 0;
+    while (i < indexed.length) {
+      let j = i;
+      // Find ties
+      while (j < indexed.length && Math.abs(indexed[j].v - indexed[i].v) < 1e-10) j++;
+      const avgRank = (r + r + (j - i - 1)) / 2;
+      for (let k = i; k < j; k++) ranks[indexed[k].i] = avgRank;
+      r += (j - i);
+      i = j;
+    }
+    return ranks;
+  });
+}
+
 module.exports = {
   computePriorities,
   computeEigenvector,
@@ -288,5 +383,7 @@ module.exports = {
   createIdentityMatrix,
   updateMatrix,
   aggregateMatrices,
+  computeKendallW,
+  prioritiesToRanks,
   RI_TABLE,
 };

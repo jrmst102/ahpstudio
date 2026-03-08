@@ -23,6 +23,10 @@ function formatValue(v) {
  *   respondentData – { respId: { criteriaMatrix, altMatrices, ... } }
  *   sensitivityData – sensitivity analysis result or null
  *   sensitivityCriterion – name of analysed criterion
+ *   participants – [{ name, anonymousLabel, weight, status }] (v1.1.5)
+ *   consensus – { criteria: {W, chiSquared, pValue}, alternatives: {...}, global: {...} } (v1.1.5)
+ *   anonymousMode – boolean (v1.1.5)
+ *   currentRound – number (v1.1.5)
  */
 const DecisionReport = ({
   title,
@@ -39,6 +43,10 @@ const DecisionReport = ({
   respondentData = {},
   sensitivityData,
   sensitivityCriterion,
+  participants = [],
+  consensus,
+  anonymousMode = false,
+  currentRound = 1,
 }) => {
   const reportRef = useRef(null);
 
@@ -146,7 +154,8 @@ const DecisionReport = ({
           AHP Decision Report
         </h1>
         <p className="meta" style={{ color: '#6D6D6D', fontSize: '14px' }}>
-          Generated on {now} · AHP Studio v1.1.4
+          Generated on {now} · AHP Studio v1.1.5
+          {currentRound > 1 && ` · Round ${currentRound}`}
         </p>
 
         {/* Problem Definition */}
@@ -209,6 +218,66 @@ const DecisionReport = ({
                       </tr>
                     );
                   })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Decision-Makers (v1.1.5 participants) */}
+        {participants.length > 0 && (
+          <div className="section" style={{ pageBreakInside: 'avoid' }}>
+            <h2 style={{ color: '#57068C', marginTop: '32px' }}>3. Decision-Makers</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ background: '#57068C', color: 'white', padding: '8px 12px', border: '1px solid #ddd' }}>Name</th>
+                  <th style={{ background: '#57068C', color: 'white', padding: '8px 12px', border: '1px solid #ddd' }}>Weight</th>
+                  <th style={{ background: '#57068C', color: 'white', padding: '8px 12px', border: '1px solid #ddd' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {participants.map((p, i) => {
+                  const totalW = participants.reduce((s, x) => s + (x.weight || 1), 0);
+                  const label = anonymousMode ? (p.anonymousLabel || `Participant ${String.fromCharCode(65 + i)}`) : p.name;
+                  return (
+                    <tr key={i}>
+                      <td style={{ padding: '8px 12px', border: '1px solid #ddd' }}>{label}</td>
+                      <td style={{ padding: '8px 12px', border: '1px solid #ddd' }}>
+                        {p.weight || 1} ({totalW > 0 ? (((p.weight || 1) / totalW) * 100).toFixed(1) : 0}%)
+                      </td>
+                      <td style={{ padding: '8px 12px', border: '1px solid #ddd' }}>{p.status || 'Not Started'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Consensus Analysis */}
+        {consensus && (
+          <div className="section" style={{ pageBreakInside: 'avoid' }}>
+            <h2 style={{ color: '#57068C', marginTop: '32px' }}>Consensus Analysis (Kendall&apos;s W)</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ background: '#57068C', color: 'white', padding: '8px 12px', border: '1px solid #ddd' }}>Comparison Group</th>
+                  <th style={{ background: '#57068C', color: 'white', padding: '8px 12px', border: '1px solid #ddd' }}>W</th>
+                  <th style={{ background: '#57068C', color: 'white', padding: '8px 12px', border: '1px solid #ddd' }}>Agreement</th>
+                  <th style={{ background: '#57068C', color: 'white', padding: '8px 12px', border: '1px solid #ddd' }}>χ²</th>
+                  <th style={{ background: '#57068C', color: 'white', padding: '8px 12px', border: '1px solid #ddd' }}>p-value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {consensus.criteria && (
+                  <ConsensusReportRow label="Main Criteria" data={consensus.criteria} />
+                )}
+                {consensus.alternatives && Object.entries(consensus.alternatives).map(([crit, data]) => (
+                  <ConsensusReportRow key={crit} label={`Alternatives (${crit})`} data={data} />
+                ))}
+                {consensus.global && (
+                  <ConsensusReportRow label="Global Alternatives" data={consensus.global} />
+                )}
               </tbody>
             </table>
           </div>
@@ -378,6 +447,29 @@ const DecisionReport = ({
         </div>
       </div>
     </div>
+  );
+};
+
+const W_LABELS = [
+  { min: 0, max: 0.2, label: 'Very Low' },
+  { min: 0.2, max: 0.4, label: 'Low' },
+  { min: 0.4, max: 0.6, label: 'Moderate' },
+  { min: 0.6, max: 0.8, label: 'High' },
+  { min: 0.8, max: 1.01, label: 'Very High' },
+];
+
+const ConsensusReportRow = ({ label, data }) => {
+  if (!data || data.W === undefined) return null;
+  const wLabel = (W_LABELS.find(l => data.W >= l.min && data.W < l.max) || W_LABELS[0]).label;
+  const cellStyle = { padding: '8px 12px', border: '1px solid #ddd' };
+  return (
+    <tr>
+      <td style={cellStyle}>{label}</td>
+      <td style={{ ...cellStyle, fontWeight: 'bold' }}>{data.W.toFixed(3)}</td>
+      <td style={cellStyle}>{wLabel}</td>
+      <td style={cellStyle}>{data.chiSquared?.toFixed(2)}</td>
+      <td style={cellStyle}>{data.pValue?.toFixed(4)}</td>
+    </tr>
   );
 };
 

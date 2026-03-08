@@ -13,6 +13,7 @@ import WhyAHPPage from './pages/WhyAHPPage';
 import HelpPage from './pages/HelpPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import ParticipatePage from './pages/ParticipatePage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 function App() {
@@ -88,6 +89,7 @@ function App() {
             />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/participate/:problemId/:token" element={<ParticipatePage />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </ProblemProvider>

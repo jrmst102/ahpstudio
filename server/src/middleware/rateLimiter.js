@@ -32,7 +32,24 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+/**
+ * PIN verification rate limiter
+ * 5 attempts per 15 minutes per IP
+ */
+const pinLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  message: {
+    error: {
+      message: 'Too many PIN attempts. Please try again later.',
+    },
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 module.exports = {
   loginLimiter,
   apiLimiter,
+  pinLimiter,
 };

@@ -84,6 +84,74 @@ const problemService = {
     const response = await api.post('/problems/upload', { problemData });
     return response.data;
   },
+
+  // ── Participant management ──
+
+  async listParticipants(problemId) {
+    const response = await api.get(`/problems/${problemId}/participants`);
+    return response.data;
+  },
+
+  async addParticipant(problemId, { name, email }) {
+    const response = await api.post(`/problems/${problemId}/participants`, { name, email });
+    return response.data;
+  },
+
+  async updateParticipant(problemId, participantId, updates) {
+    const response = await api.put(`/problems/${problemId}/participants/${participantId}`, updates);
+    return response.data;
+  },
+
+  async removeParticipant(problemId, participantId) {
+    const response = await api.delete(`/problems/${problemId}/participants/${participantId}`);
+    return response.data;
+  },
+
+  async regeneratePin(problemId, participantId) {
+    const response = await api.post(`/problems/${problemId}/participants/${participantId}/regenerate-pin`);
+    return response.data;
+  },
+
+  // ── Config ──
+
+  async updateConfig(problemId, config) {
+    const response = await api.put(`/problems/${problemId}/config`, config);
+    return response.data;
+  },
+
+  // ── Round management ──
+
+  async closeRound(problemId) {
+    const response = await api.post(`/problems/${problemId}/round/close`);
+    return response.data;
+  },
+
+  async reopenRound(problemId) {
+    const response = await api.post(`/problems/${problemId}/round/reopen`);
+    return response.data;
+  },
+
+  async newRound(problemId) {
+    const response = await api.post(`/problems/${problemId}/round/new`);
+    return response.data;
+  },
+
+  async finalizeProblem(problemId) {
+    const response = await api.post(`/problems/${problemId}/finalize`);
+    return response.data;
+  },
+
+  // ── Consensus & rounds ──
+
+  async getConsensus(problemId) {
+    const response = await api.get(`/problems/${problemId}/consensus`);
+    return response.data;
+  },
+
+  async listRounds(problemId) {
+    const response = await api.get(`/problems/${problemId}/rounds`);
+    return response.data;
+  },
 };
 
 export default problemService;

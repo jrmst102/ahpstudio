@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProblem } from '../context/ProblemContext';
 import computeService from '../services/computeService';
+import problemService from '../services/problemService';
 import Alert from '../components/common/Alert';
 import Button from '../components/common/Button';
 import ComparisonWizard from '../components/comparisons/ComparisonWizard';
 import RespondentManager from '../components/respondents/RespondentManager';
+import ParticipantManager from '../components/participants/ParticipantManager';
 import DecisionReport from '../components/report/DecisionReport';
 import { MAX_CRITERIA, MAX_ALTERNATIVES, CHART_COLORS } from '../utils/constants';
 
@@ -97,6 +99,7 @@ const ProblemEditor = () => {
   const [altCRs, setAltCRs] = useState({});
   const [globalResults, setGlobalResults] = useState(null);
   const [computing, setComputing] = useState(false);
+  const [consensusData, setConsensusData] = useState(null);
 
   // Sensitivity
   const [sensitivityCriterion, setSensitivityCriterion] = useState('');
@@ -106,6 +109,11 @@ const ProblemEditor = () => {
   const [respondents, setRespondents] = useState([]);
   const [respondentData, setRespondentData] = useState({}); // { respId: { criteriaMatrix, altMatrices, subCriteriaMatrices, subCriteriaAltMatrices } }
   const [activeRespondentId, setActiveRespondentId] = useState(null);
+
+  // Participants (v1.1.5 decision-maker participation)
+  const [participantConfig, setParticipantConfig] = useState({});
+  const [participantCurrentRound, setParticipantCurrentRound] = useState(1);
+  const [participantRoundStatus, setParticipantRoundStatus] = useState('open');
 
   // Wizard / matrix toggle for comparisons
   const [comparisonMode, setComparisonMode] = useState('wizard'); // 'wizard' or 'matrix'
@@ -132,6 +140,9 @@ const ProblemEditor = () => {
       setSubCriteriaAltMatrices(d.subCriteriaAltMatrices || {});
       setRespondents(d.respondents || []);
       setRespondentData(d.respondentData || {});
+      setParticipantConfig(d.config || {});
+      setParticipantCurrentRound(d.currentRound || 1);
+      setParticipantRoundStatus(d.roundStatus || 'open');
     } else {
       setCriteria([]);
       setAlternatives([]);
@@ -142,6 +153,9 @@ const ProblemEditor = () => {
       setSubCriteriaAltMatrices({});
       setRespondents([]);
       setRespondentData({});
+      setParticipantConfig({});
+      setParticipantCurrentRound(1);
+      setParticipantRoundStatus('open');
     }
   }, [currentProblem]);
 
@@ -651,7 +665,8 @@ const ProblemEditor = () => {
     { id: 'definition', label: 'Definition', icon: '📝' },
     { id: 'criteria', label: 'Criteria', icon: '📊' },
     { id: 'alternatives', label: 'Alternatives', icon: '🎯' },
-    { id: 'respondents', label: 'Respondents', icon: '👥' },
+    { id: 'decision-makers', label: 'Decision-Makers', icon: '👥' },
+    { id: 'respondents', label: 'Respondents', icon: '📋' },
     { id: 'comparisons', label: 'Comparisons', icon: '⚖️' },
     { id: 'results', label: 'Results', icon: '📈' },
     { id: 'sensitivity', label: 'Sensitivity', icon: '🔍' },
@@ -938,6 +953,22 @@ const ProblemEditor = () => {
           </div>
         )}
 
+        {/* ──────────── DECISION-MAKERS TAB ──────────── */}
+        {activeTab === 'decision-makers' && problemId && (
+          <ParticipantManager
+            problemId={problemId}
+            config={participantConfig}
+            currentRound={participantCurrentRound}
+            roundStatus={participantRoundStatus}
+            onDataChange={() => loadProblem(problemId)}
+          />
+        )}
+        {activeTab === 'decision-makers' && !problemId && (
+          <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
+            <p className="text-nyu-text-secondary">Save the problem first to manage decision-makers.</p>
+          </div>
+        )}
+
         {/* ──────────── RESPONDENTS TAB ──────────── */}
         {activeTab === 'respondents' && (
           <RespondentManager
@@ -1187,6 +1218,42 @@ const ProblemEditor = () => {
                       ))}
                   </div>
                 </div>
+
+                {/* Consensus (Kendall's W) — shown when participants exist */}
+                {problemId && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-lg font-semibold">Consensus (Kendall&apos;s W)</h4>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            const data = await problemService.getConsensus(problemId);
+                            setConsensusData(data);
+                          } catch { /* silently ignore if no participants */ }
+                        }}
+                      >
+                        {consensusData ? 'Refresh' : 'Compute Consensus'}
+                      </Button>
+                    </div>
+                    {consensusData ? (
+                      <div className="space-y-2">
+                        {consensusData.criteria && (
+                          <ConsensusDisplay label="Main Criteria" data={consensusData.criteria} />
+                        )}
+                        {consensusData.alternatives && Object.entries(consensusData.alternatives).map(([crit, data]) => (
+                          <ConsensusDisplay key={crit} label={`Alternatives w.r.t. ${crit}`} data={data} />
+                        ))}
+                        {consensusData.global && (
+                          <ConsensusDisplay label="Global Alternatives" data={consensusData.global} />
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400">Add decision-makers and compute to see consensus metrics.</p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1282,6 +1349,9 @@ const ProblemEditor = () => {
             respondentData={respondentData}
             sensitivityData={sensitivityData}
             sensitivityCriterion={sensitivityCriterion}
+            consensus={consensusData}
+            anonymousMode={participantConfig.anonymousMode}
+            currentRound={participantCurrentRound}
           />
         )}
       </div>
@@ -1416,6 +1486,31 @@ const WizardComparisons = ({
             </Button>
           )}
         </div>
+      </div>
+    </div>
+  );
+};
+
+/* ───────────────────────── ConsensusDisplay ───────────────────────── */
+
+const CONSENSUS_LABELS = [
+  { min: 0, max: 0.2, label: 'Very Low Agreement', cls: 'text-red-700 bg-red-100' },
+  { min: 0.2, max: 0.4, label: 'Low Agreement', cls: 'text-orange-700 bg-orange-100' },
+  { min: 0.4, max: 0.6, label: 'Moderate Agreement', cls: 'text-yellow-700 bg-yellow-100' },
+  { min: 0.6, max: 0.8, label: 'High Agreement', cls: 'text-green-700 bg-green-100' },
+  { min: 0.8, max: 1.01, label: 'Very High Agreement', cls: 'text-emerald-700 bg-emerald-100' },
+];
+
+const ConsensusDisplay = ({ label, data }) => {
+  if (!data || data.W === undefined) return null;
+  const info = CONSENSUS_LABELS.find(l => data.W >= l.min && data.W < l.max) || CONSENSUS_LABELS[0];
+  return (
+    <div className="bg-gray-50 rounded-lg px-4 py-3 flex items-center justify-between">
+      <span className="text-sm font-medium">{label}</span>
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-bold">W = {data.W.toFixed(3)}</span>
+        <span className={`text-xs px-2 py-0.5 rounded-full ${info.cls}`}>{info.label}</span>
+        <span className="text-xs text-gray-500">χ²={data.chiSquared?.toFixed(2)} p={data.pValue?.toFixed(4)}</span>
       </div>
     </div>
   );

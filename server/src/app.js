@@ -10,6 +10,8 @@ const authRoutes = require('./routes/authRoutes');
 const problemRoutes = require('./routes/problemRoutes');
 const computeRoutes = require('./routes/computeRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const participationRoutes = require('./routes/participationRoutes');
+const { setupWebSocket } = require('./websocket');
 
 const app = express();
 
@@ -32,6 +34,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/problems', problemRoutes);
 app.use('/api/v1/compute', computeRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/participate', participationRoutes);
 
 // Health check
 app.get('/api/v1/health', (req, res) => {
@@ -70,9 +73,12 @@ app.get('*', (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`AHP Studio server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
+
+// Attach WebSocket server
+setupWebSocket(server);
 
 module.exports = app;
