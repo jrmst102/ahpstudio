@@ -7,7 +7,7 @@ import Alert from '../components/common/Alert';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { problems, loadProblems, createProblem, deleteProblem, loading } = useProblem();
+  const { problems, loadProblems, createProblem, deleteProblem, saveProblem, loading } = useProblem();
   const [showNewProblemModal, setShowNewProblemModal] = useState(false);
   const [newProblemTitle, setNewProblemTitle] = useState('');
   const [newProblemDescription, setNewProblemDescription] = useState('');
@@ -17,6 +17,42 @@ const Dashboard = () => {
   useEffect(() => {
     loadProblems();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ─── File upload handler ─── */
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset input so the same file can be re-selected
+    e.target.value = '';
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      // Create a new server-side problem from the uploaded file
+      const problem = await createProblem({
+        title: data.title || file.name.replace(/\.AHP$/i, ''),
+        description: data.description || '',
+      });
+
+      // Save the full problem data (criteria, alternatives, matrices, etc.)
+      await saveProblem(problem.id, {
+        problem: { title: data.title || problem.title, description: data.description || '' },
+        criteria: data.criteria || [],
+        alternatives: data.alternatives || [],
+        criteriaMatrix: data.criteriaMatrix || [],
+        altMatrices: data.altMatrices || {},
+        subCriteria: data.subCriteria || {},
+        subCriteriaMatrices: data.subCriteriaMatrices || {},
+        subCriteriaAltMatrices: data.subCriteriaAltMatrices || {},
+      });
+
+      setSuccess('Problem imported successfully');
+      navigate(`/editor/${problem.id}`);
+    } catch (err) {
+      setError('Failed to import file. Make sure it is a valid .AHP file.');
+    }
+  };
 
   const handleCreateProblem = async () => {
     if (!newProblemTitle.trim()) {
@@ -122,6 +158,7 @@ const Dashboard = () => {
               accept=".AHP,.json"
               className="hidden"
               id="file-upload"
+              onChange={handleFileUpload}
             />
             <label htmlFor="file-upload">
               <Button variant="outline" size="sm" onClick={() => document.getElementById('file-upload').click()}>
