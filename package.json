@@ -28,6 +28,7 @@
     "@aws-sdk/s3-request-presigner": "^3.525.0",
     "mathjs": "^12.2.1",
     "uuid": "^9.0.1",
-    "cookie-parser": "^1.4.6"
+    "cookie-parser": "^1.4.6",
+    "ws": "^8.19.0"
   }
 }
