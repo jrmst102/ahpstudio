@@ -6,7 +6,7 @@
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
-    "build": "npm install --prefix server --production",
+    "build": "echo 'Build complete - client pre-built, server deps in root'",
     "build:client": "npm install --prefix client && npm run build --prefix client",
     "start": "node server/src/app.js",
     "dev:server": "npm run dev --prefix server",
