@@ -4,7 +4,7 @@ import { useProblem } from '../context/ProblemContext';
 import computeService from '../services/computeService';
 import Alert from '../components/common/Alert';
 import Button from '../components/common/Button';
-import { MAX_CRITERIA, MAX_ALTERNATIVES, SAATY_SCALE, CR_THRESHOLD, CHART_COLORS } from '../utils/constants';
+import { MAX_CRITERIA, MAX_ALTERNATIVES, CHART_COLORS } from '../utils/constants';
 
 const MAX_SUB_CRITERIA = 6;
 

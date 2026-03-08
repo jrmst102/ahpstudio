@@ -16,7 +16,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     loadProblems();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreateProblem = async () => {
     if (!newProblemTitle.trim()) {

@@ -1,5 +1,4 @@
 import React from 'react';
-import Button from './Button';
 
 const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
   if (!isOpen) return null;
