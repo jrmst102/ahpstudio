@@ -938,12 +938,61 @@ const ProblemEditor = () => {
           </div>
         )}
 
+        {/* ──────────── RESPONDENTS TAB ──────────── */}
+        {activeTab === 'respondents' && (
+          <RespondentManager
+            respondents={respondents}
+            onRespondentsChange={handleRespondentsChange}
+            onSelectRespondent={(respId) => {
+              setActiveRespondentId(respId);
+              if (respId) setActiveTab('comparisons');
+            }}
+            activeRespondentId={activeRespondentId}
+            criteria={criteria}
+            alternatives={alternatives}
+            respondentData={respondentData}
+          />
+        )}
+
         {/* ──────────── COMPARISONS TAB ──────────── */}
         {activeTab === 'comparisons' && (
           <div>
-            <h3 className="text-xl font-semibold text-nyu-text-primary mb-2">Pairwise Comparisons</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xl font-semibold text-nyu-text-primary">Pairwise Comparisons</h3>
+              {/* Mode toggle — respondents always use wizard */}
+              {!activeRespondentId && (
+                <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setComparisonMode('wizard')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${comparisonMode === 'wizard' ? 'bg-nyu-violet text-white' : 'text-gray-600 hover:bg-gray-200'}`}
+                  >
+                    🧙 Wizard
+                  </button>
+                  <button
+                    onClick={() => setComparisonMode('matrix')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${comparisonMode === 'matrix' ? 'bg-nyu-violet text-white' : 'text-gray-600 hover:bg-gray-200'}`}
+                  >
+                    📊 Matrix
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {activeRespondentId && (
+              <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg flex items-center justify-between">
+                <span className="text-sm text-purple-800">
+                  Entering comparisons for: <strong>{respondents.find(r => r.id === activeRespondentId)?.name}</strong>
+                </span>
+                <Button size="sm" variant="outline" onClick={() => setActiveRespondentId(null)}>
+                  Exit Respondent Mode
+                </Button>
+              </div>
+            )}
+
             <p className="text-nyu-text-secondary mb-1">
-              Use sliders to compare items using Saaty's 1–9 scale. Drag left (negative) to favor the <strong>row</strong> item; drag right (positive) to favor the <strong>column</strong> item. Center = equal importance.
+              {comparisonMode === 'wizard' || activeRespondentId
+                ? 'Compare items one pair at a time. Use the slider to indicate preference and intensity.'
+                : 'Use sliders to compare items using Saaty\'s 1–9 scale.'}
             </p>
             <p className="text-xs text-nyu-text-secondary mb-6">
               1 = Equal &nbsp;|&nbsp; 3 = Moderate &nbsp;|&nbsp; 5 = Strong &nbsp;|&nbsp; 7 = Very Strong &nbsp;|&nbsp; 9 = Extreme
@@ -951,7 +1000,37 @@ const ProblemEditor = () => {
 
             {criteria.length < 2 || alternatives.length < 2 ? (
               <Alert type="warning" message="Add at least 2 criteria and 2 alternatives before making comparisons." />
+            ) : (comparisonMode === 'wizard' || activeRespondentId) ? (
+              /* ── WIZARD MODE ── */
+              <WizardComparisons
+                criteria={criteria}
+                alternatives={alternatives}
+                subCriteria={subCriteria}
+                activeRespondentId={activeRespondentId}
+                criteriaMatrix={activeRespondentId ? (respondentData[activeRespondentId]?.criteriaMatrix || emptyMatrix(criteria.length)) : criteriaMatrix}
+                altMatrices={activeRespondentId ? (respondentData[activeRespondentId]?.altMatrices || {}) : altMatrices}
+                subCriteriaMatrices={activeRespondentId ? (respondentData[activeRespondentId]?.subCriteriaMatrices || {}) : subCriteriaMatrices}
+                subCriteriaAltMatrices={activeRespondentId ? (respondentData[activeRespondentId]?.subCriteriaAltMatrices || {}) : subCriteriaAltMatrices}
+                onCriteriaCellChange={activeRespondentId
+                  ? (i, j, val) => setRespondentCriteriaCell(activeRespondentId, i, j, val)
+                  : setCriteriaCell}
+                onAltCellChange={activeRespondentId
+                  ? (c, i, j, val) => setRespondentAltCell(activeRespondentId, c, i, j, val)
+                  : setAltCell}
+                onSubCriteriaCellChange={activeRespondentId
+                  ? (c, i, j, val) => setRespondentSubCriteriaCell(activeRespondentId, c, i, j, val)
+                  : setSubCriteriaCell}
+                onSubCritAltCellChange={activeRespondentId
+                  ? (c, sc, i, j, val) => setRespondentSubCritAltCell(activeRespondentId, c, sc, i, j, val)
+                  : setSubCritAltCell}
+                onSave={() => doSave(criteria, alternatives, criteriaMatrix, altMatrices)}
+                onCompute={handleCompute}
+                saving={saving}
+                computing={computing}
+                emptyMatrix={emptyMatrix}
+              />
             ) : (
+              /* ── MATRIX MODE ── */
               <>
                 {/* Criteria vs criteria */}
                 <div className="mb-8">
@@ -1185,6 +1264,158 @@ const ProblemEditor = () => {
             )}
           </div>
         )}
+
+        {/* ──────────── REPORT TAB ──────────── */}
+        {activeTab === 'report' && (
+          <DecisionReport
+            title={title}
+            description={description}
+            criteria={criteria}
+            alternatives={alternatives}
+            subCriteria={subCriteria}
+            criteriaWeights={criteriaWeights}
+            criteriaCR={criteriaCR}
+            altWeights={altWeights}
+            altCRs={altCRs}
+            globalResults={globalResults}
+            respondents={respondents}
+            respondentData={respondentData}
+            sensitivityData={sensitivityData}
+            sensitivityCriterion={sensitivityCriterion}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ───────────────────────── WizardComparisons ───────────────────────── */
+/**
+ * Sub-component that walks through all comparison groups in wizard mode.
+ * Groups: criteria matrix, sub-criteria matrices, alt matrices per criterion/sub-criterion.
+ */
+const WizardComparisons = ({
+  criteria, alternatives, subCriteria,
+  criteriaMatrix, altMatrices, subCriteriaMatrices, subCriteriaAltMatrices,
+  onCriteriaCellChange, onAltCellChange, onSubCriteriaCellChange, onSubCritAltCellChange,
+  onSave, onCompute, saving, computing, emptyMatrix,
+}) => {
+  const [groupIdx, setGroupIdx] = React.useState(0);
+
+  // Build ordered list of comparison groups
+  const groups = React.useMemo(() => {
+    const g = [];
+
+    // 1. Criteria comparison
+    if (criteria.length >= 2) {
+      g.push({
+        key: 'criteria',
+        label: 'Criteria Comparison',
+        items: criteria,
+        matrix: criteriaMatrix,
+        onCellChange: (i, j, val) => onCriteriaCellChange(i, j, val),
+      });
+    }
+
+    // 2. Sub-criteria and alt comparisons per criterion
+    criteria.forEach(c => {
+      const subs = subCriteria[c] || [];
+      if (subs.length >= 2) {
+        g.push({
+          key: `sub-${c}`,
+          label: `Sub-criteria under "${c}"`,
+          items: subs,
+          matrix: subCriteriaMatrices[c] || emptyMatrix(subs.length),
+          onCellChange: (i, j, val) => onSubCriteriaCellChange(c, i, j, val),
+        });
+        subs.forEach(sc => {
+          g.push({
+            key: `${c}::${sc}`,
+            label: `Alternatives w.r.t. "${c}" > "${sc}"`,
+            items: alternatives,
+            matrix: subCriteriaAltMatrices[`${c}::${sc}`] || emptyMatrix(alternatives.length),
+            onCellChange: (i, j, val) => onSubCritAltCellChange(c, sc, i, j, val),
+          });
+        });
+      } else if (alternatives.length >= 2) {
+        g.push({
+          key: `alt-${c}`,
+          label: `Alternatives w.r.t. "${c}"`,
+          items: alternatives,
+          matrix: altMatrices[c] || emptyMatrix(alternatives.length),
+          onCellChange: (i, j, val) => onAltCellChange(c, i, j, val),
+        });
+      }
+    });
+
+    return g;
+  }, [criteria, alternatives, subCriteria, criteriaMatrix, altMatrices, subCriteriaMatrices, subCriteriaAltMatrices, emptyMatrix, onCriteriaCellChange, onAltCellChange, onSubCriteriaCellChange, onSubCritAltCellChange]);
+
+  if (groups.length === 0) {
+    return <p className="text-nyu-text-secondary italic">Add at least 2 criteria and 2 alternatives to begin comparisons.</p>;
+  }
+
+  const currentGroup = groups[Math.min(groupIdx, groups.length - 1)];
+  const isLastGroup = groupIdx >= groups.length - 1;
+
+  return (
+    <div>
+      {/* Group progress */}
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-sm font-medium text-nyu-text-secondary">
+          Group {Math.min(groupIdx, groups.length - 1) + 1} of {groups.length}
+        </span>
+        <div className="flex gap-1">
+          {groups.map((g, idx) => (
+            <button
+              key={g.key}
+              onClick={() => setGroupIdx(idx)}
+              className={`h-2 rounded-full transition-colors ${idx === groupIdx ? 'w-6 bg-nyu-violet' : 'w-2 bg-gray-300 hover:bg-gray-400'}`}
+              title={g.label}
+            />
+          ))}
+        </div>
+      </div>
+
+      <ComparisonWizard
+        key={currentGroup.key}
+        items={currentGroup.items}
+        matrix={currentGroup.matrix}
+        onCellChange={currentGroup.onCellChange}
+        contextLabel={currentGroup.label}
+        onComplete={() => {
+          if (isLastGroup) {
+            // All done
+          } else {
+            setGroupIdx(groupIdx + 1);
+          }
+        }}
+      />
+
+      {/* Group navigation + actions */}
+      <div className="flex items-center justify-between mt-8 pt-4 border-t border-gray-200">
+        <Button
+          variant="outline"
+          onClick={() => setGroupIdx(Math.max(0, groupIdx - 1))}
+          disabled={groupIdx === 0}
+        >
+          ← Previous Group
+        </Button>
+        <div className="flex gap-3">
+          <Button onClick={onSave} variant="outline" disabled={saving}>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+          {isLastGroup && (
+            <Button onClick={onCompute} disabled={computing}>
+              {computing ? 'Computing…' : 'Compute Results'}
+            </Button>
+          )}
+          {!isLastGroup && (
+            <Button onClick={() => setGroupIdx(groupIdx + 1)}>
+              Next Group →
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
