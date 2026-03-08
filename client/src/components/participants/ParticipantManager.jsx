@@ -24,7 +24,7 @@ function formatDate(iso) {
 }
 
 /**
- * ParticipantManager – admin panel for managing decision-makers, config, and rounds.
+ * ParticipantManager – admin panel for managing participants, config, and rounds.
  *
  * Props:
  *   problemId        – current problem ID
@@ -188,7 +188,7 @@ const ParticipantManager = ({
   };
 
   const handleRemove = async (pid) => {
-    if (!window.confirm('Remove this decision-maker and all their comparison data?')) return;
+    if (!window.confirm('Remove this participant and all their comparison data?')) return;
     try {
       await problemService.removeParticipant(problemId, pid);
       loadParticipants();
@@ -266,7 +266,7 @@ const ParticipantManager = ({
   // ── Round management ──
 
   const handleCloseRound = async () => {
-    if (!window.confirm('Close this round? Decision-makers will no longer be able to submit comparisons.')) return;
+    if (!window.confirm('Close this round? Participants will no longer be able to submit comparisons.')) return;
     try {
       await problemService.closeRound(problemId);
       setRoundStatus('closed');
@@ -368,9 +368,9 @@ const ParticipantManager = ({
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-xl font-semibold text-nyu-text-primary">Decision-Makers</h3>
+          <h3 className="text-xl font-semibold text-nyu-text-primary">Participants</h3>
           <p className="text-sm text-nyu-text-secondary">
-            Add decision-makers and share unique participation links.
+            Add participants and share unique participation links.
             {!wsConnected && (
               <span className="ml-2 text-amber-600 text-xs">(live updates unavailable)</span>
             )}
@@ -381,7 +381,7 @@ const ParticipantManager = ({
           onClick={() => setShowAddModal(true)}
           disabled={participants.length >= MAX_PARTICIPANTS || isFinalised}
         >
-          + Add Decision-Maker
+          + Add Participant
         </Button>
       </div>
 
@@ -462,9 +462,9 @@ const ParticipantManager = ({
         </div>
       ) : participants.length === 0 ? (
         <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
-          <p className="text-nyu-text-secondary mb-2">No decision-makers added yet.</p>
+          <p className="text-nyu-text-secondary mb-2">No participants added yet.</p>
           <p className="text-sm text-gray-400">
-            Add up to {MAX_PARTICIPANTS} decision-makers to gather multiple perspectives.
+            Add up to {MAX_PARTICIPANTS} participants to gather multiple perspectives.
           </p>
         </div>
       ) : (
@@ -549,7 +549,7 @@ const ParticipantManager = ({
 
       <div className="mt-4 flex items-center justify-between">
         <p className="text-sm text-nyu-text-secondary">
-          {participants.length}/{MAX_PARTICIPANTS} decision-makers
+          {participants.length}/{MAX_PARTICIPANTS} participants
           {completedCount > 0 && ` · ${completedCount} completed`}
         </p>
         {participants.length > 1 && !isFinalised && (
@@ -611,7 +611,7 @@ const ParticipantManager = ({
       <Modal
         isOpen={showAddModal}
         onClose={() => { setShowAddModal(false); setNewName(''); setNewEmail(''); }}
-        title="Add Decision-Maker"
+        title="Add Participant"
         footer={
           <>
             <Button variant="outline" onClick={() => { setShowAddModal(false); setNewName(''); setNewEmail(''); }}>Cancel</Button>

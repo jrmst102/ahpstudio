@@ -223,10 +223,10 @@ const DecisionReport = ({
           </div>
         )}
 
-        {/* Decision-Makers (v1.1.5 participants) */}
+        {/* Participants (v1.1.5) */}
         {participants.length > 0 && (
           <div className="section" style={{ pageBreakInside: 'avoid' }}>
-            <h2 style={{ color: '#57068C', marginTop: '32px' }}>3. Decision-Makers</h2>
+            <h2 style={{ color: '#57068C', marginTop: '32px' }}>3. Participants</h2>
             <table>
               <thead>
                 <tr>

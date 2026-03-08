@@ -281,11 +281,11 @@ async function addParticipant(req, res) {
 
     const participants = data.participants || [];
     if (participants.length >= MAX_PARTICIPANTS) {
-      return res.status(400).json({ error: { message: `Maximum ${MAX_PARTICIPANTS} decision-makers allowed` } });
+      return res.status(400).json({ error: { message: `Maximum ${MAX_PARTICIPANTS} participants allowed` } });
     }
 
     if (participants.some(p => p.name === name.trim())) {
-      return res.status(400).json({ error: { message: 'A decision-maker with that name already exists' } });
+      return res.status(400).json({ error: { message: 'A participant with that name already exists' } });
     }
 
     const token = uuidv4();
@@ -353,7 +353,7 @@ async function addParticipant(req, res) {
     });
   } catch (error) {
     console.error('Add participant error:', error);
-    res.status(500).json({ error: { message: 'Failed to add decision-maker' } });
+    res.status(500).json({ error: { message: 'Failed to add participant' } });
   }
 }
 
@@ -366,7 +366,7 @@ async function updateParticipant(req, res) {
     if (!data) return res.status(404).json({ error: { message: 'Problem not found' } });
 
     const idx = (data.participants || []).findIndex(p => p.id === pid);
-    if (idx === -1) return res.status(404).json({ error: { message: 'Decision-maker not found' } });
+    if (idx === -1) return res.status(404).json({ error: { message: 'Participant not found' } });
 
     if (name) data.participants[idx].name = name.trim();
     if (email !== undefined) data.participants[idx].email = email?.trim() || null;
@@ -377,7 +377,7 @@ async function updateParticipant(req, res) {
     res.json({ participant: { ...data.participants[idx], pinHash: undefined } });
   } catch (error) {
     console.error('Update participant error:', error);
-    res.status(500).json({ error: { message: 'Failed to update decision-maker' } });
+    res.status(500).json({ error: { message: 'Failed to update participant' } });
   }
 }
 
@@ -389,7 +389,7 @@ async function removeParticipant(req, res) {
     if (!data) return res.status(404).json({ error: { message: 'Problem not found' } });
 
     const participant = (data.participants || []).find(p => p.id === pid);
-    if (!participant) return res.status(404).json({ error: { message: 'Decision-maker not found' } });
+    if (!participant) return res.status(404).json({ error: { message: 'Participant not found' } });
 
     // Remove from token index
     const tokenIndex = await loadTokenIndex();
@@ -400,10 +400,10 @@ async function removeParticipant(req, res) {
 
     await saveProblemFile(req.user.id, id, data);
 
-    res.json({ message: 'Decision-maker removed' });
+    res.json({ message: 'Participant removed' });
   } catch (error) {
     console.error('Remove participant error:', error);
-    res.status(500).json({ error: { message: 'Failed to remove decision-maker' } });
+    res.status(500).json({ error: { message: 'Failed to remove participant' } });
   }
 }
 
@@ -415,7 +415,7 @@ async function regeneratePin(req, res) {
     if (!data) return res.status(404).json({ error: { message: 'Problem not found' } });
 
     const idx = (data.participants || []).findIndex(p => p.id === pid);
-    if (idx === -1) return res.status(404).json({ error: { message: 'Decision-maker not found' } });
+    if (idx === -1) return res.status(404).json({ error: { message: 'Participant not found' } });
 
     const pin = generatePin();
     data.participants[idx].pinHash = await bcrypt.hash(pin, 10);

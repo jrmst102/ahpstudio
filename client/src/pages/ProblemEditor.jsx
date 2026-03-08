@@ -110,7 +110,7 @@ const ProblemEditor = () => {
   const [respondentData, setRespondentData] = useState({}); // { respId: { criteriaMatrix, altMatrices, subCriteriaMatrices, subCriteriaAltMatrices } }
   const [activeRespondentId, setActiveRespondentId] = useState(null);
 
-  // Participants (v1.1.5 decision-maker participation)
+  // Participants (v1.1.5 participant participation)
   const [participantConfig, setParticipantConfig] = useState({});
   const [participantCurrentRound, setParticipantCurrentRound] = useState(1);
   const [participantRoundStatus, setParticipantRoundStatus] = useState('open');
@@ -665,7 +665,7 @@ const ProblemEditor = () => {
     { id: 'definition', label: 'Definition', icon: '📝' },
     { id: 'criteria', label: 'Criteria', icon: '📊' },
     { id: 'alternatives', label: 'Alternatives', icon: '🎯' },
-    { id: 'decision-makers', label: 'Decision-Makers', icon: '👥' },
+    { id: 'participants', label: 'Participants', icon: '👥' },
     { id: 'respondents', label: 'Respondents', icon: '📋' },
     { id: 'comparisons', label: 'Comparisons', icon: '⚖️' },
     { id: 'results', label: 'Results', icon: '📈' },
@@ -953,8 +953,8 @@ const ProblemEditor = () => {
           </div>
         )}
 
-        {/* ──────────── DECISION-MAKERS TAB ──────────── */}
-        {activeTab === 'decision-makers' && problemId && (
+        {/* ──────────── PARTICIPANTS TAB ──────────── */}
+        {activeTab === 'participants' && problemId && (
           <ParticipantManager
             problemId={problemId}
             config={participantConfig}
@@ -963,9 +963,9 @@ const ProblemEditor = () => {
             onDataChange={() => loadProblem(problemId)}
           />
         )}
-        {activeTab === 'decision-makers' && !problemId && (
+        {activeTab === 'participants' && !problemId && (
           <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
-            <p className="text-nyu-text-secondary">Save the problem first to manage decision-makers.</p>
+            <p className="text-nyu-text-secondary">Save the problem first to manage participants.</p>
           </div>
         )}
 
@@ -1250,7 +1250,7 @@ const ProblemEditor = () => {
                         )}
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-400">Add decision-makers and compute to see consensus metrics.</p>
+                      <p className="text-sm text-gray-400">Add participants and compute to see consensus metrics.</p>
                     )}
                   </div>
                 )}

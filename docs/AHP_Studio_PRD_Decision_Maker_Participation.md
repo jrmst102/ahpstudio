@@ -1,6 +1,6 @@
 # AHP Studio — Product Requirements Document
 
-## Feature: Decision-Maker Participation via Shareable Links
+## Feature: Participant Participation via Shareable Links
 
 **Document Version:** 2.0  
 **Date:** March 8, 2026  
@@ -12,7 +12,7 @@
 
 ## 1. Executive Summary
 
-This document specifies a new participation model for AHP Studio. Project admins will onboard decision-makers directly within a problem, then share unique, tokenized links that allow each decision-maker to complete pairwise comparisons without creating an account. The feature replaces the current respondent workflow with a frictionless, link-based approach — lowering the barrier to participation while preserving the rigor of the AHP method.
+This document specifies a new participation model for AHP Studio. Project admins will onboard participants directly within a problem, then share unique, tokenized links that allow each participant to complete pairwise comparisons without creating an account. The feature replaces the current respondent workflow with a frictionless, link-based approach — lowering the barrier to participation while preserving the rigor of the AHP method.
 
 The release also introduces real-time status tracking for the admin dashboard, optional anonymous participation, group consensus measurement via Kendall's W, multi-round Delphi-style iteration to drive convergence, and optional PIN protection for participation links.
 
@@ -24,14 +24,14 @@ At the conclusion of a decision round, the admin generates a comprehensive Decis
 
 ### 2.1 Goals
 
-- Enable project admins to onboard decision-makers with minimal friction (name and optional email only).
-- Provide each decision-maker with a unique, stable URL that grants direct access to the comparison wizard — no account or login required.
+- Enable project admins to onboard participants with minimal friction (name and optional email only).
+- Provide each participant with a unique, stable URL that grants direct access to the comparison wizard — no account or login required.
 - Optionally protect participation links with a 4-digit PIN for environments requiring additional access control.
-- Allow decision-makers to complete, save, and later revise their pairwise comparisons via the same link.
-- Assign equal default weights to all decision-makers, with admin ability to adjust weights at any time.
-- Support optional anonymous participation mode where the admin cannot see which decision-maker submitted which response.
+- Allow participants to complete, save, and later revise their pairwise comparisons via the same link.
+- Assign equal default weights to all participants, with admin ability to adjust weights at any time.
+- Support optional anonymous participation mode where the admin cannot see which participant submitted which response.
 - Aggregate individual comparison matrices using the weighted geometric mean method.
-- Compute and display inter-rater agreement metrics (Kendall's W) to assess group consistency across decision-makers.
+- Compute and display inter-rater agreement metrics (Kendall's W) to assess group consistency across participants.
 - Support multi-round Delphi-style iteration, allowing the admin to share aggregated results between rounds to drive convergence.
 - Provide real-time status updates on the admin dashboard as participants complete comparisons, using WebSocket connections.
 - Generate a printable PDF Decision Report that the admin can save and distribute externally.
@@ -40,9 +40,9 @@ At the conclusion of a decision round, the admin generates a comprehensive Decis
 ### 2.2 Non-Goals
 
 - The application will **not** send emails or notifications. The admin shares links and PDFs through their own channels.
-- The application will **not** require decision-makers to create accounts or authenticate with passwords.
+- The application will **not** require participants to create accounts or authenticate with passwords.
 - Real-time collaborative editing (multiple people working simultaneously on the same matrix) is out of scope.
-- In-app chat or discussion among decision-makers is out of scope.
+- In-app chat or discussion among participants is out of scope.
 
 ---
 
@@ -50,41 +50,41 @@ At the conclusion of a decision round, the admin generates a comprehensive Decis
 
 | Role | Description |
 |---|---|
-| **Project Admin** | The authenticated user who created the AHP problem. Has full control: defines criteria, alternatives, onboards decision-makers, adjusts weights, configures anonymity and PIN settings, manages decision rounds, triggers computation, generates reports. |
-| **Decision-Maker** | A participant invited by the admin. Accesses the system exclusively through a unique link (optionally PIN-protected). Can complete and revise pairwise comparisons for the problem they were invited to. Cannot see other decision-makers' inputs. |
+| **Project Admin** | The authenticated user who created the AHP problem. Has full control: defines criteria, alternatives, onboards participants, adjusts weights, configures anonymity and PIN settings, manages decision rounds, triggers computation, generates reports. |
+| **Participant** | A participant invited by the admin. Accesses the system exclusively through a unique link (optionally PIN-protected). Can complete and revise pairwise comparisons for the problem they were invited to. Cannot see other participants' inputs. |
 
 ---
 
 ## 4. Functional Requirements
 
-### 4.1 Decision-Maker Onboarding
+### 4.1 Participant Onboarding
 
-**FR-01:** The admin can add decision-makers to a problem from the problem's settings or a dedicated "Decision-Makers" panel.
+**FR-01:** The admin can add participants to a problem from the problem's settings or a dedicated "Participants" panel.
 
-**FR-02:** For each decision-maker, the admin provides:
+**FR-02:** For each participant, the admin provides:
 
 - **Name** (required) — Display name used in reports and the admin dashboard. In anonymous mode (see FR-30), the admin sees names for management purposes but cannot associate them with submitted responses.
 - **Email** (optional) — Stored for the admin's reference only; the system does not send emails.
 
-**FR-03:** Upon adding a decision-maker, the system generates a unique participation token (UUID v4) and constructs a participation URL:
+**FR-03:** Upon adding a participant, the system generates a unique participation token (UUID v4) and constructs a participation URL:
 
 ```
 https://{APP_URL}/participate/{problemId}/{participantToken}
 ```
 
-**FR-04:** The admin can view, copy, and re-copy the participation link at any time from the Decision-Makers panel.
+**FR-04:** The admin can view, copy, and re-copy the participation link at any time from the Participants panel.
 
-**FR-05:** All newly added decision-makers receive a default weight of `1.0`. The admin can adjust individual weights at any time from the Decision-Makers panel.
+**FR-05:** All newly added participants receive a default weight of `1.0`. The admin can adjust individual weights at any time from the Participants panel.
 
-**FR-06:** The admin can remove a decision-maker. This invalidates their token and deletes their comparison data after a confirmation prompt.
+**FR-06:** The admin can remove a participant. This invalidates their token and deletes their comparison data after a confirmation prompt.
 
-**FR-07:** The maximum number of decision-makers per problem is **12** (increased from the current 6-respondent limit to accommodate link-based ease of onboarding).
+**FR-07:** The maximum number of participants per problem is **12** (increased from the current 6-respondent limit to accommodate link-based ease of onboarding).
 
 ### 4.2 PIN Protection
 
-**FR-08:** The admin can enable PIN protection at the problem level. When enabled, each decision-maker is assigned a unique 4-digit PIN at creation time.
+**FR-08:** The admin can enable PIN protection at the problem level. When enabled, each participant is assigned a unique 4-digit PIN at creation time.
 
-**FR-09:** The admin can view and regenerate a participant's PIN from the Decision-Makers panel. PINs are displayed alongside the participation link so the admin can share both together.
+**FR-09:** The admin can view and regenerate a participant's PIN from the Participants panel. PINs are displayed alongside the participation link so the admin can share both together.
 
 **FR-10:** When PIN protection is enabled, the participation link presents a PIN entry screen before granting access to the wizard. Three consecutive incorrect attempts lock the link for 15 minutes.
 
@@ -92,7 +92,7 @@ https://{APP_URL}/participate/{problemId}/{participantToken}
 
 ### 4.3 Participation Link Behavior
 
-**FR-12:** When a decision-maker opens their participation link (and passes PIN verification if enabled), they land on a **welcome screen** that displays:
+**FR-12:** When a participant opens their participation link (and passes PIN verification if enabled), they land on a **welcome screen** that displays:
 
 - The problem title and description.
 - Their name (as entered by the admin).
@@ -102,15 +102,15 @@ https://{APP_URL}/participate/{problemId}/{participantToken}
 
 **FR-13:** No login or account creation is required. The token in the URL (plus optional PIN) is the sole identifier.
 
-**FR-14:** If the decision-maker has previously submitted comparisons, opening the link shows their existing responses pre-filled in the wizard, with an option to revise and resubmit.
+**FR-14:** If the participant has previously submitted comparisons, opening the link shows their existing responses pre-filled in the wizard, with an option to revise and resubmit.
 
 **FR-15:** If the admin has **closed** the decision round (see FR-25), the link displays a friendly message: *"This decision round has been closed. Thank you for your participation."* No edits are possible.
 
 **FR-16:** If the token is invalid or the problem has been deleted, the link displays: *"This link is no longer valid. Please contact the person who shared it with you."*
 
-### 4.4 Comparison Wizard (Decision-Maker View)
+### 4.4 Comparison Wizard (Participant View)
 
-**FR-17:** The decision-maker is presented with the existing wizard-style comparison interface: one pair at a time, with back/forward navigation, progress tracking, and the AHP 1–9 scale.
+**FR-17:** The participant is presented with the existing wizard-style comparison interface: one pair at a time, with back/forward navigation, progress tracking, and the AHP 1–9 scale.
 
 **FR-18:** The wizard covers all required comparisons:
 
@@ -118,28 +118,28 @@ https://{APP_URL}/participate/{problemId}/{participantToken}
 - Sub-criteria vs. sub-criteria (within each criterion that has sub-criteria).
 - Alternatives vs. alternatives (under each lowest-level criterion).
 
-**FR-19:** The decision-maker can save progress at any point ("Save & Continue Later"). Their partial data is persisted, and they can resume from where they left off by reopening the same link.
+**FR-19:** The participant can save progress at any point ("Save & Continue Later"). Their partial data is persisted, and they can resume from where they left off by reopening the same link.
 
-**FR-20:** Upon completing all comparisons, the decision-maker clicks "Submit." The system stores their full set of comparison matrices and marks them as complete.
+**FR-20:** Upon completing all comparisons, the participant clicks "Submit." The system stores their full set of comparison matrices and marks them as complete.
 
-**FR-21:** After submission, the decision-maker sees a confirmation screen with:
+**FR-21:** After submission, the participant sees a confirmation screen with:
 
 - A summary of their completed comparisons.
 - Their individual consistency ratios (CR) for each matrix.
 - A warning if any CR exceeds 0.10, with an option to go back and revise.
 - A message that the project admin will share results once the decision is finalized.
 
-**FR-22:** Decision-makers **cannot** see other participants' names, inputs, or results. Each participant operates in isolation to prevent anchoring bias.
+**FR-22:** Participants **cannot** see other participants' names, inputs, or results. Each participant operates in isolation to prevent anchoring bias.
 
-**FR-23:** In Delphi rounds 2 and beyond (see Section 4.8), the wizard displays the group's aggregated priorities from the previous round alongside the decision-maker's own prior responses, enabling informed revision.
+**FR-23:** In Delphi rounds 2 and beyond (see Section 4.8), the wizard displays the group's aggregated priorities from the previous round alongside the participant's own prior responses, enabling informed revision.
 
 ### 4.5 Admin Dashboard — Participation Monitoring
 
-**FR-24:** The Decision-Makers panel shows a status table:
+**FR-24:** The Participants panel shows a status table:
 
 | Column | Description |
 |---|---|
-| Name | Decision-maker's name (or anonymized label if anonymous mode is on — see FR-30) |
+| Name | Participant's name (or anonymized label if anonymous mode is on — see FR-30) |
 | Weight | Current weight (editable inline) |
 | Status | `Not Started` · `In Progress` · `Completed` |
 | Consistency | Overall CR (shown after completion) |
@@ -156,7 +156,7 @@ https://{APP_URL}/participate/{problemId}/{participantToken}
 
 ### 4.6 Real-Time Status Updates
 
-**FR-27:** The admin dashboard maintains a WebSocket connection to the server. When a decision-maker saves progress or submits comparisons, the admin's status table updates automatically without requiring a page refresh.
+**FR-27:** The admin dashboard maintains a WebSocket connection to the server. When a participant saves progress or submits comparisons, the admin's status table updates automatically without requiring a page refresh.
 
 **FR-28:** Real-time events include:
 
@@ -173,7 +173,7 @@ https://{APP_URL}/participate/{problemId}/{participantToken}
 
 **FR-31:** When anonymous mode is enabled:
 
-- The admin can still see the list of decision-makers' names for management purposes (sharing links, tracking who has and hasn't completed).
+- The admin can still see the list of participants' names for management purposes (sharing links, tracking who has and hasn't completed).
 - Submitted comparison data and computed results are **dissociated** from participant identities. The admin sees results labeled as "Participant A," "Participant B," etc., with no way to map these labels back to names.
 - The PDF report's appendix uses the same anonymized labels.
 
@@ -181,7 +181,7 @@ https://{APP_URL}/participate/{problemId}/{participantToken}
 
 ### 4.8 Multi-Round Delphi-Style Iteration
 
-**FR-33:** The admin can configure a problem for **multi-round iteration**. Each round is a complete cycle of comparisons by all (or some) decision-makers, followed by aggregation and result review.
+**FR-33:** The admin can configure a problem for **multi-round iteration**. Each round is a complete cycle of comparisons by all (or some) participants, followed by aggregation and result review.
 
 **FR-34:** After closing a round and reviewing aggregated results, the admin can initiate a **new round**. This:
 
@@ -202,7 +202,7 @@ https://{APP_URL}/participate/{problemId}/{participantToken}
 
 ### 4.9 Consensus Measurement
 
-**FR-38:** After aggregation, the system computes **Kendall's coefficient of concordance (W)** across all completed decision-makers' priority vectors.
+**FR-38:** After aggregation, the system computes **Kendall's coefficient of concordance (W)** across all completed participants' priority vectors.
 
 **FR-39:** Kendall's W is displayed on the Results screen with an interpretive label:
 
@@ -234,7 +234,7 @@ https://{APP_URL}/participate/{problemId}/{participantToken}
 1. **Cover Page** — Problem title, date, admin name, round number (if multi-round), and report generation timestamp.
 2. **Problem Definition** — Goal statement, description, and decision context.
 3. **Decision Hierarchy** — Visual or textual representation of criteria, sub-criteria, and alternatives.
-4. **Decision-Makers** — Table of participants with their names (or anonymized labels), weights, and individual consistency ratios.
+4. **Participants** — Table of participants with their names (or anonymized labels), weights, and individual consistency ratios.
 5. **Consensus Analysis** — Kendall's W for each comparison group, with interpretive labels and statistical significance.
 6. **Criteria Weights** — Aggregated pairwise comparison matrix and resulting priority vector for main criteria and each set of sub-criteria.
 7. **Alternative Priorities** — Aggregated comparison matrices and local priorities under each criterion.
@@ -242,9 +242,9 @@ https://{APP_URL}/participate/{problemId}/{participantToken}
 9. **Sensitivity Analysis** — Summary of rank reversals detected when varying criterion weights.
 10. **Decision Rationale** — Auto-generated narrative summarizing why the top-ranked alternative is preferred, referencing the criteria it scored highest on.
 11. **Round History** (multi-round only) — Round-by-round priority vectors, Kendall's W trend, and convergence metrics.
-12. **Appendix: Individual Results** — Per-decision-maker priority vectors and consistency ratios (optional — admin can toggle inclusion; uses anonymized labels if anonymous mode is on).
+12. **Appendix: Individual Results** — Per-participant priority vectors and consistency ratios (optional — admin can toggle inclusion; uses anonymized labels if anonymous mode is on).
 
-**FR-45:** The admin saves the PDF locally and distributes it to decision-makers and stakeholders via their own email system. The application does not handle email delivery.
+**FR-45:** The admin saves the PDF locally and distributes it to participants and stakeholders via their own email system. The application does not handle email delivery.
 
 ---
 
@@ -342,7 +342,7 @@ data/participation-tokens.json
 }
 ```
 
-This enables O(1) lookup when a decision-maker opens their link, rather than searching across all problems.
+This enables O(1) lookup when a participant opens their link, rather than searching across all problems.
 
 ---
 
@@ -352,10 +352,10 @@ This enables O(1) lookup when a decision-maker opens their link, rather than sea
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/api/v1/problems/:id/participants` | Admin (JWT) | List all decision-makers for a problem |
-| `POST` | `/api/v1/problems/:id/participants` | Admin (JWT) | Add a decision-maker; returns generated link and PIN (if enabled) |
+| `GET` | `/api/v1/problems/:id/participants` | Admin (JWT) | List all participants for a problem |
+| `POST` | `/api/v1/problems/:id/participants` | Admin (JWT) | Add a participant; returns generated link and PIN (if enabled) |
 | `PUT` | `/api/v1/problems/:id/participants/:pid` | Admin (JWT) | Update name, email, or weight |
-| `DELETE` | `/api/v1/problems/:id/participants/:pid` | Admin (JWT) | Remove a decision-maker and their data |
+| `DELETE` | `/api/v1/problems/:id/participants/:pid` | Admin (JWT) | Remove a participant and their data |
 | `POST` | `/api/v1/problems/:id/participants/:pid/regenerate-pin` | Admin (JWT) | Generate a new 4-digit PIN for a participant |
 | `PUT` | `/api/v1/problems/:id/config` | Admin (JWT) | Update problem configuration (anonymousMode, pinProtection, delphiEnabled) |
 | `POST` | `/api/v1/problems/:id/round/close` | Admin (JWT) | Close the current decision round |
@@ -373,7 +373,7 @@ This enables O(1) lookup when a decision-maker opens their link, rather than sea
 
 | Endpoint | Change |
 |---|---|
-| `POST /api/v1/compute/aggregate` | Accept `participantIds` filter and `roundNumber` parameter to aggregate a subset of decision-makers for a specific round |
+| `POST /api/v1/compute/aggregate` | Accept `participantIds` filter and `roundNumber` parameter to aggregate a subset of participants for a specific round |
 | `POST /api/v1/compute/priorities` | Accept aggregated matrices produced from participant data |
 
 ### 6.3 WebSocket Events
@@ -403,7 +403,7 @@ The server exposes a WebSocket endpoint at `/ws/problems/:id/status` (requires a
 - PINs are 4-digit numeric codes (0000–9999), generated randomly per participant.
 - PINs are stored hashed (bcrypt, cost factor 10) in the problem file. The plaintext PIN is shown to the admin once at creation and on demand via the dashboard.
 - Three consecutive incorrect PIN attempts lock the participation link for 15 minutes (keyed by token + IP).
-- Successful PIN verification issues a short-lived session token (JWT, 4-hour expiry) stored in an httpOnly cookie, so the decision-maker does not need to re-enter the PIN during a single working session.
+- Successful PIN verification issues a short-lived session token (JWT, 4-hour expiry) stored in an httpOnly cookie, so the participant does not need to re-enter the PIN during a single working session.
 
 ### 7.3 Access Control
 
@@ -434,7 +434,7 @@ The server exposes a WebSocket endpoint at `/ws/problems/:id/status` (requires a
 
 ## 8. UI/UX Specifications
 
-### 8.1 Admin: Decision-Makers Panel
+### 8.1 Admin: Participants Panel
 
 Located within the problem editor, as a tab or collapsible section alongside Criteria, Alternatives, and Results.
 
@@ -444,12 +444,12 @@ Located within the problem editor, as a tab or collapsible section alongside Cri
 - **PIN Protection** toggle — enabled/disabled; can be changed at any time (existing PINs remain valid; new PINs are generated for new participants).
 - **Delphi Iteration** toggle — enabled/disabled; when enabled, round controls appear.
 
-**Add Decision-Maker Flow:**
+**Add Participant Flow:**
 
-1. Admin clicks "Add Decision-Maker."
+1. Admin clicks "Add Participant."
 2. A form appears with fields: Name (required), Email (optional).
 3. On save, the system generates the token (and PIN if enabled) and displays the participation link with "Copy Link" and "Copy PIN" buttons.
-4. The new decision-maker appears in the status table with status "Not Started" and weight "1.0."
+4. The new participant appears in the status table with status "Not Started" and weight "1.0."
 
 **Weight Adjustment:**
 
@@ -469,7 +469,7 @@ Located within the problem editor, as a tab or collapsible section alongside Cri
 - "New Round" button — available only after a round is closed; initiates the next round.
 - "Finalize" button — permanently locks the problem; no further rounds.
 
-### 8.2 Decision-Maker: Participation Experience
+### 8.2 Participant: Participation Experience
 
 **PIN Entry Screen (if enabled):**
 
@@ -559,12 +559,12 @@ This feature constitutes a patch version increment: **v1.1.5**.
 
 ### 10.3 Edge Cases
 
-- Decision-maker opens link after problem is deleted.
-- Decision-maker submits after round is closed (should be rejected gracefully).
+- Participant opens link after problem is deleted.
+- Participant submits after round is closed (should be rejected gracefully).
 - Admin removes a participant mid-comparison.
 - All participants have CR > 0.10.
-- Single decision-maker (aggregation degenerates to their individual matrices; Kendall's W is undefined with n=1 — handle gracefully).
-- Maximum 12 decision-makers all submitting concurrently.
+- Single participant (aggregation degenerates to their individual matrices; Kendall's W is undefined with n=1 — handle gracefully).
+- Maximum 12 participants all submitting concurrently.
 - Admin enables anonymous mode, then tries to disable it after a participant has started (should be blocked).
 - Delphi round 2 initiated with zero completed participants in round 1 (should warn the admin).
 - PIN verification with leading zeros (e.g., "0042").
@@ -587,7 +587,7 @@ These items are explicitly **out of scope** for v1.1.5 but noted for potential f
 
 ## 12. Summary
 
-This feature transforms AHP Studio's multi-participant workflow from an account-dependent respondent system into a frictionless, link-based participation model. Project admins retain full control over the decision process — onboarding participants, monitoring progress in real time, adjusting weights, configuring anonymity and PIN protection, running iterative Delphi rounds, measuring group consensus, and generating comprehensive reports — while decision-makers contribute through a clean, focused interface that requires nothing more than clicking a link.
+This feature transforms AHP Studio's multi-participant workflow from an account-dependent respondent system into a frictionless, link-based participation model. Project admins retain full control over the decision process — onboarding participants, monitoring progress in real time, adjusting weights, configuring anonymity and PIN protection, running iterative Delphi rounds, measuring group consensus, and generating comprehensive reports — while participants contribute through a clean, focused interface that requires nothing more than clicking a link.
 
 ---
 

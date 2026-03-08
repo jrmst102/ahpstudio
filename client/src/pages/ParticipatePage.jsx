@@ -270,7 +270,7 @@ const ParticipatePage = () => {
       <div className="bg-purple-900 text-white py-4 px-6">
         <h1 className="text-lg font-bold">{data?.problemTitle}</h1>
         <p className="text-purple-200 text-sm">
-          Decision-Maker: {data?.participantName}
+          Participant: {data?.participantName}
           {data?.currentRound > 1 && ` · Round ${data.currentRound}`}
         </p>
       </div>
