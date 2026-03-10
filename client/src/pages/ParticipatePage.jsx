@@ -29,6 +29,7 @@ const ParticipatePage = () => {
   const [submitted, setSubmitted] = useState(false);
   const [coaching, setCoaching] = useState([]);
   const [groupIdx, setGroupIdx] = useState(0);
+  const [showOverview, setShowOverview] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
@@ -279,6 +280,67 @@ const ParticipatePage = () => {
             Revise my comparisons
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // Problem overview screen
+  if (showOverview) {
+    const criteria = data?.criteria || [];
+    const alternatives = data?.alternatives || [];
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-purple-900 text-white py-4 px-6">
+          <h1 className="text-lg font-bold">{data?.problemTitle}</h1>
+          <p className="text-purple-200 text-sm">
+            Welcome, <strong>{data?.participantName}</strong>
+            {data?.currentRound > 1 && ` · Round ${data.currentRound}`}
+          </p>
+        </div>
+        <div className="max-w-2xl mx-auto px-4 py-8">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+            <h2 className="text-xl font-bold text-gray-800 mb-3">About This Decision</h2>
+            {data?.problemDescription && (
+              <p className="text-gray-600 mb-6">{data.problemDescription}</p>
+            )}
+
+            {criteria.length > 0 && (
+              <div className="mb-5">
+                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Criteria</h3>
+                <p className="text-xs text-gray-400 mb-2">The factors being used to evaluate the alternatives.</p>
+                <div className="flex flex-wrap gap-2">
+                  {criteria.map(c => (
+                    <span key={c} className="px-3 py-1.5 bg-purple-50 text-purple-800 rounded-full text-sm font-medium border border-purple-200">{c}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {alternatives.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Alternatives</h3>
+                <p className="text-xs text-gray-400 mb-2">The options being compared.</p>
+                <div className="flex flex-wrap gap-2">
+                  {alternatives.map(a => (
+                    <span key={a} className="px-3 py-1.5 bg-orange-50 text-orange-800 rounded-full text-sm font-medium border border-orange-200">{a}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
+              <strong>What you'll do:</strong> Compare items two at a time using a slider. Drag the slider toward the item you consider more important. The further you drag, the stronger your preference.
+            </div>
+
+            <button
+              onClick={() => setShowOverview(false)}
+              className="w-full py-3 bg-purple-700 text-white rounded-lg font-semibold hover:bg-purple-800 transition-colors text-lg"
+            >
+              Begin Comparisons →
+            </button>
+          </div>
+        </div>
+        <div className="text-center py-6 text-xs text-gray-400">Powered by AHP Studio</div>
       </div>
     );
   }

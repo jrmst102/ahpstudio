@@ -517,6 +517,13 @@ const ProblemEditor = () => {
 
       // Save matrices too
       await doSave(criteria, alternatives, criteriaMatrix, altMatrices);
+
+      // Auto-compute consensus if participants exist
+      try {
+        const consensusRes = await problemService.getConsensus(problemId);
+        setConsensusData(consensusRes.consensus || null);
+      } catch { /* no participants yet — ignore */ }
+
       setActiveTab('results');
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Computation failed');
@@ -1107,7 +1114,7 @@ const ProblemEditor = () => {
                         onClick={async () => {
                           try {
                             const data = await problemService.getConsensus(problemId);
-                            setConsensusData(data);
+                            setConsensusData(data.consensus || null);
                           } catch { /* silently ignore if no participants */ }
                         }}
                       >
