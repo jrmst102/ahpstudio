@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import packageJson from '../../../package.json';
 
 const Footer = () => {
   const navigate = useNavigate();
@@ -12,7 +13,7 @@ const Footer = () => {
             Copyright 2026 by Dr. Jose Mendoza.
           </p>
           <p className="text-sm text-nyu-text-secondary">
-            v 1.1.3
+            v{packageJson.version}
           </p>
           <div className="flex gap-4">
             <button

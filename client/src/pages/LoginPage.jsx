@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/common/Button';
 import Alert from '../components/common/Alert';
+import packageJson from '../../package.json';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -97,6 +98,9 @@ const LoginPage = () => {
         <div className="mt-6 text-center">
           <p className="text-sm text-nyu-text-secondary">
             Copyright 2026 by Dr. Jose Mendoza.
+          </p>
+          <p className="text-xs text-nyu-text-secondary mt-1">
+            v{packageJson.version}
           </p>
         </div>
       </div>

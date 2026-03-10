@@ -1,6 +1,6 @@
 # AHP Studio
 
-**Version:** 1.1.6  
+**Version:** 1.1.7  
 **Author:** Dr. Jose Mendoza  
 **Copyright 2026 by Dr. Jose Mendoza.**
 
@@ -122,6 +122,7 @@ No database server is required.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1.7 | 2026-03-10 | Version display on login screen and footer; rebuilt client to fix participation link login redirect |
 | 1.1.6 | 2026-03-10 | LLM-powered intelligence layer: AI report narratives (OpenAI), consistency coaching for participants, smart validation with "Review My Setup" panel, triad-based inconsistency detection; consolidated respondents into participants; comparisons locked until owner adds themselves as a participant; reduced base font size |
 | 1.1.5 | 2026-03-08 | Participant participation via shareable tokenized links, PIN protection, anonymous mode, Kendall's W consensus measurement, multi-round Delphi iteration, WebSocket real-time status, enhanced decision report with consensus analysis, max 12 participants |
 | 1.1.4 | 2026-03-08 | Wizard-style comparisons, weighted geometric mean aggregation, decision report generation |
