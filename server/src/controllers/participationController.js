@@ -2,6 +2,8 @@ const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const storageService = require('../services/storageService');
+const ahpEngine = require('../services/ahpEngine');
+const llmService = require('../services/llmService');
 
 // In-memory PIN lockout tracking: { token: { attempts: N, lockedUntil: Date } }
 const pinLockouts = new Map();
@@ -304,13 +306,149 @@ async function saveParticipation(req, res) {
       });
     }
 
+    // On submit, compute consistency coaching
+    if (submit) {
+      const coaching = await computeConsistencyCoaching(problemData, comparisons);
+      return res.json({
+        message: 'Comparisons submitted successfully',
+        status: rd.status,
+        coaching,
+      });
+    }
+
     res.json({
-      message: submit ? 'Comparisons submitted successfully' : 'Progress saved',
+      message: 'Progress saved',
       status: rd.status,
     });
   } catch (error) {
     console.error('Save participation error:', error);
     res.status(500).json({ error: { message: 'Failed to save comparisons' } });
+  }
+}
+
+/**
+ * Compute consistency coaching for a participant's submission.
+ * Identifies inconsistent comparison groups (CR > 0.10), finds the most
+ * inconsistent triad in each, and requests coaching messages from the LLM.
+ */
+async function computeConsistencyCoaching(problemData, comparisons) {
+  try {
+    const criteria = problemData.criteria || [];
+    const alternatives = problemData.alternatives || [];
+    const subCriteria = problemData.subCriteria || {};
+
+    // Build comparison groups and check consistency
+    const inconsistentGroups = [];
+
+    // Helper: check a matrix for inconsistency
+    const checkMatrix = (matrix, items, groupId, groupContext) => {
+      if (!matrix || !Array.isArray(matrix) || matrix.length < 3) return;
+      try {
+        const result = ahpEngine.computePriorities(matrix);
+        if (result.cr > 0.10) {
+          const triadResult = ahpEngine.findMostInconsistentTriad(matrix);
+          if (triadResult) {
+            const [i, j, k] = triadResult.indices;
+            const judgments = {};
+
+            const pref = (val) => val >= 1
+              ? { value: Math.round(val), preferred: items[0] }
+              : { value: Math.round(1 / val), preferred: items[1] };
+
+            judgments[`${items[i]} vs ${items[j]}`] = {
+              value: matrix[i][j] >= 1 ? Math.round(matrix[i][j]) : Math.round(1 / matrix[i][j]),
+              preferred: matrix[i][j] >= 1 ? items[i] : items[j],
+            };
+            judgments[`${items[j]} vs ${items[k]}`] = {
+              value: matrix[j][k] >= 1 ? Math.round(matrix[j][k]) : Math.round(1 / matrix[j][k]),
+              preferred: matrix[j][k] >= 1 ? items[j] : items[k],
+            };
+            judgments[`${items[i]} vs ${items[k]}`] = {
+              value: matrix[i][k] >= 1 ? Math.round(matrix[i][k]) : Math.round(1 / matrix[i][k]),
+              preferred: matrix[i][k] >= 1 ? items[i] : items[k],
+            };
+
+            inconsistentGroups.push({
+              groupId,
+              groupContext,
+              groupLabel: groupContext,
+              cr: parseFloat(result.cr.toFixed(4)),
+              triad: {
+                elements: [items[i], items[j], items[k]],
+                judgments,
+              },
+            });
+          }
+        }
+      } catch {
+        // Skip if matrix is invalid
+      }
+    };
+
+    // Check criteria matrix
+    const criteriaMatrix = comparisons.criteriaMatrix;
+    if (criteriaMatrix) {
+      checkMatrix(criteriaMatrix, criteria, 'criteria',
+        `Main criteria for the decision: ${problemData.problem?.title || 'Untitled'}`);
+    }
+
+    // Check sub-criteria and alternative matrices
+    criteria.forEach(c => {
+      const subs = subCriteria[c] || [];
+      if (subs.length >= 2) {
+        const scMat = comparisons.subCriteriaMatrices?.[c];
+        if (scMat) {
+          checkMatrix(scMat, subs, `sub-${c}`,
+            `Sub-criteria under "${c}"`);
+        }
+        subs.forEach(sc => {
+          const key = `${c}::${sc}`;
+          const scAltMat = comparisons.subCriteriaAltMatrices?.[key];
+          if (scAltMat) {
+            checkMatrix(scAltMat, alternatives, key,
+              `Alternatives under "${c}" > "${sc}"`);
+          }
+        });
+      } else {
+        const altMat = comparisons.altMatrices?.[c];
+        if (altMat) {
+          checkMatrix(altMat, alternatives, `alt-${c}`,
+            `Alternatives with respect to "${c}"`);
+        }
+      }
+    });
+
+    if (inconsistentGroups.length === 0) return [];
+
+    // Try to get LLM coaching
+    if (llmService.CONFIG.enabled()) {
+      try {
+        const messages = await llmService.generateConsistencyCoaching(inconsistentGroups);
+        // Merge coaching messages with CR/group data
+        return inconsistentGroups.map(g => {
+          const msg = messages.find(m => m.groupId === g.groupId);
+          return {
+            groupId: g.groupId,
+            groupLabel: g.groupLabel,
+            cr: g.cr,
+            coachingMessage: msg?.coachingMessage || null,
+          };
+        });
+      } catch (err) {
+        console.error('Consistency coaching LLM call failed:', err.message);
+      }
+    }
+
+    // Fallback: return without coaching messages
+    return inconsistentGroups.map(g => ({
+      groupId: g.groupId,
+      groupLabel: g.groupLabel,
+      cr: g.cr,
+      coachingMessage: null,
+    }));
+  } catch (err) {
+    console.error('Consistency coaching computation error:', err);
+    return [];
   }
 }
 

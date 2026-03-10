@@ -11,6 +11,7 @@ const problemRoutes = require('./routes/problemRoutes');
 const computeRoutes = require('./routes/computeRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const participationRoutes = require('./routes/participationRoutes');
+const llmRoutes = require('./routes/llmRoutes');
 const { setupWebSocket } = require('./websocket');
 
 const app = express();
@@ -35,6 +36,7 @@ app.use('/api/v1/problems', problemRoutes);
 app.use('/api/v1/compute', computeRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/participate', participationRoutes);
+app.use('/api/v1/llm', llmRoutes);
 
 // Health check
 app.get('/api/v1/health', (req, res) => {
@@ -48,6 +50,8 @@ app.get('/api/v1/health', (req, res) => {
       SPACES_BUCKET: process.env.SPACES_BUCKET ? 'SET' : 'MISSING',
       SPACES_REGION: process.env.SPACES_REGION ? 'SET' : 'MISSING',
       JWT_SECRET: process.env.JWT_SECRET ? 'SET' : 'MISSING',
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY ? 'SET' : 'MISSING',
+      LLM_ENABLED: process.env.LLM_ENABLED !== 'false' && process.env.OPENAI_API_KEY ? 'true' : 'false',
       NODE_ENV: process.env.NODE_ENV || 'not set',
     },
   });

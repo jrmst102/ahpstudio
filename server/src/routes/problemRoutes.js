@@ -1,5 +1,6 @@
 const express = require('express');
 const problemController = require('../controllers/problemController');
+const llmController = require('../controllers/llmController');
 const authenticate = require('../middleware/authenticate');
 
 const router = express.Router();
@@ -36,5 +37,10 @@ router.post('/:id/finalize', problemController.finalizeProblem);
 // Consensus & rounds
 router.get('/:id/consensus', problemController.getConsensus);
 router.get('/:id/rounds', problemController.listRounds);
+
+// LLM-powered features
+router.post('/:id/report/narratives', llmController.generateNarratives);
+router.post('/:id/report/narratives/regenerate', llmController.regenerateNarratives);
+router.post('/:id/validate-structure', llmController.validateStructure);
 
 module.exports = router;

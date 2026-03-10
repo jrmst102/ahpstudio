@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import ComparisonWizard from '../components/comparisons/ComparisonWizard';
+import CoachingCard from '../components/comparisons/CoachingCard';
 
 const api = axios.create({ baseURL: '/api/v1', withCredentials: true });
 
@@ -25,6 +26,7 @@ const ParticipatePage = () => {
   const [comparisons, setComparisons] = useState({});
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [coaching, setCoaching] = useState([]);
   const [groupIdx, setGroupIdx] = useState(0);
 
   const fetchData = useCallback(async () => {
@@ -144,11 +146,14 @@ const ParticipatePage = () => {
   const handleSave = async (isSubmit = false) => {
     setSaving(true);
     try {
-      await api.put(`/participate/${problemId}/${token}`, {
+      const res = await api.put(`/participate/${problemId}/${token}`, {
         comparisons,
         submit: isSubmit,
       });
-      if (isSubmit) setSubmitted(true);
+      if (isSubmit) {
+        setCoaching(res.data?.coaching || []);
+        setSubmitted(true);
+      }
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Failed to save');
     } finally {
@@ -226,19 +231,40 @@ const ParticipatePage = () => {
 
   // Submitted confirmation
   if (submitted) {
+    const inconsistentCoaching = coaching.filter(c => c.cr > 0.1);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md text-center">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
           <div className="text-4xl mb-4">🎉</div>
           <h2 className="text-xl font-bold text-gray-800 mb-2">Comparisons Submitted!</h2>
           <p className="text-gray-600 mb-4">
             Thank you, <strong>{data?.participantName}</strong>. Your comparisons have been recorded.
           </p>
-          <p className="text-sm text-gray-500">
+          {inconsistentCoaching.length > 0 && (
+            <div className="text-left mt-4 space-y-3">
+              <p className="text-sm font-medium text-gray-700">Some of your comparison groups may benefit from review:</p>
+              {inconsistentCoaching.map((c, idx) => (
+                <CoachingCard
+                  key={idx}
+                  groupLabel={c.groupLabel}
+                  cr={c.cr}
+                  coachingMessage={c.message}
+                  onRevise={() => {
+                    setSubmitted(false);
+                    setCoaching([]);
+                    const groups = buildGroups();
+                    const targetIdx = groups.findIndex(g => g.label === c.groupLabel);
+                    if (targetIdx >= 0) setGroupIdx(targetIdx);
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          <p className="text-sm text-gray-500 mt-4">
             The project admin will share results once the decision is finalised.
           </p>
           <button
-            onClick={() => { setSubmitted(false); }}
+            onClick={() => { setSubmitted(false); setCoaching([]); }}
             className="mt-6 text-purple-700 underline text-sm"
           >
             Revise my comparisons

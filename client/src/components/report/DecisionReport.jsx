@@ -27,6 +27,7 @@ function formatValue(v) {
  *   consensus – { criteria: {W, chiSquared, pValue}, alternatives: {...}, global: {...} } (v1.1.5)
  *   anonymousMode – boolean (v1.1.5)
  *   currentRound – number (v1.1.5)
+ *   narratives – { decisionRationale, consensusSummary, sensitivityCommentary, limitationsAndCaveats } (v1.2.0)
  */
 const DecisionReport = ({
   title,
@@ -47,6 +48,7 @@ const DecisionReport = ({
   consensus,
   anonymousMode = false,
   currentRound = 1,
+  narratives = null,
 }) => {
   const reportRef = useRef(null);
 
@@ -154,7 +156,7 @@ const DecisionReport = ({
           AHP Decision Report
         </h1>
         <p className="meta" style={{ color: '#6D6D6D', fontSize: '14px' }}>
-          Generated on {now} · AHP Studio v1.1.5
+          Generated on {now} · AHP Studio v1.1.6
           {currentRound > 1 && ` · Round ${currentRound}`}
         </p>
 
@@ -280,6 +282,11 @@ const DecisionReport = ({
                 )}
               </tbody>
             </table>
+            {narratives?.consensusSummary && (
+              <div style={{ marginTop: '16px', backgroundColor: '#F3F4F6', padding: '16px', borderRadius: '4px' }}>
+                <p style={{ fontSize: '14px', lineHeight: '1.7' }}>{narratives.consensusSummary}</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -387,7 +394,7 @@ const DecisionReport = ({
             {respondents.length > 0 ? '7' : '6'}. Decision Rationale
           </h2>
           <div style={{ backgroundColor: '#EEE6F3', borderLeft: '4px solid #57068C', padding: '16px', borderRadius: '4px' }}>
-            <p style={{ fontSize: '15px', lineHeight: '1.7' }}>{buildRationale()}</p>
+            <p style={{ fontSize: '15px', lineHeight: '1.7' }}>{narratives?.decisionRationale || buildRationale()}</p>
           </div>
 
           {/* Key supporting facts */}
@@ -438,6 +445,23 @@ const DecisionReport = ({
                 return ` Rank reversals were detected at ${reversals.length} point(s), indicating sensitivity to this criterion.`;
               })()}
             </p>
+            {narratives?.sensitivityCommentary && (
+              <div style={{ marginTop: '12px', backgroundColor: '#F3F4F6', padding: '16px', borderRadius: '4px' }}>
+                <p style={{ fontSize: '14px', lineHeight: '1.7' }}>{narratives.sensitivityCommentary}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Limitations and Caveats */}
+        {narratives?.limitationsAndCaveats && (
+          <div className="section" style={{ pageBreakInside: 'avoid' }}>
+            <h2 style={{ color: '#57068C', marginTop: '32px' }}>
+              {respondents.length > 0 ? (sensitivityData ? '9' : '8') : (sensitivityData ? '8' : '7')}. Limitations &amp; Caveats
+            </h2>
+            <div style={{ backgroundColor: '#FFF8E1', borderLeft: '4px solid #FFB300', padding: '16px', borderRadius: '4px' }}>
+              <p style={{ fontSize: '14px', lineHeight: '1.7' }}>{narratives.limitationsAndCaveats}</p>
+            </div>
           </div>
         )}
 

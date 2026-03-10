@@ -9,6 +9,8 @@ import ComparisonWizard from '../components/comparisons/ComparisonWizard';
 import RespondentManager from '../components/respondents/RespondentManager';
 import ParticipantManager from '../components/participants/ParticipantManager';
 import DecisionReport from '../components/report/DecisionReport';
+import NarrativePreview from '../components/report/NarrativePreview';
+import SetupReviewPanel from '../components/layout/SetupReviewPanel';
 import { MAX_CRITERIA, MAX_ALTERNATIVES, CHART_COLORS } from '../utils/constants';
 
 const MAX_SUB_CRITERIA = 6;
@@ -114,6 +116,10 @@ const ProblemEditor = () => {
   const [participantConfig, setParticipantConfig] = useState({});
   const [participantCurrentRound, setParticipantCurrentRound] = useState(1);
   const [participantRoundStatus, setParticipantRoundStatus] = useState('open');
+
+  // LLM features
+  const [reviewPanelOpen, setReviewPanelOpen] = useState(false);
+  const [narratives, setNarratives] = useState(null);
 
   // Wizard / matrix toggle for comparisons
   const [comparisonMode, setComparisonMode] = useState('wizard'); // 'wizard' or 'matrix'
@@ -774,6 +780,15 @@ const ProblemEditor = () => {
         <div className="flex items-center gap-3">
           {saving && <span className="text-sm text-nyu-text-secondary">Saving…</span>}
           <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')}>← Dashboard</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setReviewPanelOpen(true)}
+            disabled={criteria.length === 0 || alternatives.length === 0}
+            title="Get AI-powered feedback on your problem structure."
+          >
+            🔍 Review My Setup
+          </Button>
           <Button size="sm" onClick={handleSave} disabled={saving}>Save</Button>
         </div>
       </div>
@@ -1334,27 +1349,64 @@ const ProblemEditor = () => {
 
         {/* ──────────── REPORT TAB ──────────── */}
         {activeTab === 'report' && (
-          <DecisionReport
-            title={title}
-            description={description}
-            criteria={criteria}
-            alternatives={alternatives}
-            subCriteria={subCriteria}
-            criteriaWeights={criteriaWeights}
-            criteriaCR={criteriaCR}
-            altWeights={altWeights}
-            altCRs={altCRs}
-            globalResults={globalResults}
-            respondents={respondents}
-            respondentData={respondentData}
-            sensitivityData={sensitivityData}
-            sensitivityCriterion={sensitivityCriterion}
-            consensus={consensusData}
-            anonymousMode={participantConfig.anonymousMode}
-            currentRound={participantCurrentRound}
-          />
+          <div>
+            {problemId && globalResults && (
+              <NarrativePreview
+                problemId={problemId}
+                contextPayload={{
+                  goal: title,
+                  criteria,
+                  alternatives,
+                  criteriaWeights,
+                  globalPriorities: globalResults.globalPriorities,
+                  ranking: globalResults.ranking,
+                  consistencyRatios: { criteria: criteriaCR, alternatives: altCRs },
+                  sensitivityData,
+                  sensitivityCriterion,
+                  consensus: consensusData,
+                }}
+                onNarrativesReady={setNarratives}
+              />
+            )}
+            <DecisionReport
+              title={title}
+              description={description}
+              criteria={criteria}
+              alternatives={alternatives}
+              subCriteria={subCriteria}
+              criteriaWeights={criteriaWeights}
+              criteriaCR={criteriaCR}
+              altWeights={altWeights}
+              altCRs={altCRs}
+              globalResults={globalResults}
+              respondents={respondents}
+              respondentData={respondentData}
+              sensitivityData={sensitivityData}
+              sensitivityCriterion={sensitivityCriterion}
+              consensus={consensusData}
+              anonymousMode={participantConfig.anonymousMode}
+              currentRound={participantCurrentRound}
+              narratives={narratives}
+            />
+          </div>
         )}
       </div>
+
+      {/* Setup Review Panel */}
+      {problemId && (
+        <SetupReviewPanel
+          problemId={problemId}
+          problemData={{
+            title,
+            description,
+            criteria,
+            alternatives,
+            subCriteria,
+          }}
+          isOpen={reviewPanelOpen}
+          onClose={() => setReviewPanelOpen(false)}
+        />
+      )}
     </div>
   );
 };

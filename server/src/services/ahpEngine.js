@@ -372,6 +372,41 @@ function prioritiesToRanks(priorityVectors) {
   });
 }
 
+/**
+ * Find the most inconsistent triad in a pairwise comparison matrix.
+ * Uses circular inconsistency: deviation = |log(a_ij) + log(a_jk) - log(a_ik)|
+ * @param {Array<Array<number>>} matrix - n×n comparison matrix
+ * @returns {{ indices: [number, number, number], deviation: number } | null}
+ */
+function findMostInconsistentTriad(matrix) {
+  const n = matrix.length;
+  if (n < 3) return null;
+
+  let maxDeviation = -1;
+  let bestTriad = null;
+
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      for (let k = j + 1; k < n; k++) {
+        const aij = matrix[i][j];
+        const ajk = matrix[j][k];
+        const aik = matrix[i][k];
+
+        if (aij <= 0 || ajk <= 0 || aik <= 0) continue;
+
+        const deviation = Math.abs(Math.log(aij) + Math.log(ajk) - Math.log(aik));
+        if (deviation > maxDeviation) {
+          maxDeviation = deviation;
+          bestTriad = [i, j, k];
+        }
+      }
+    }
+  }
+
+  if (!bestTriad) return null;
+  return { indices: bestTriad, deviation: maxDeviation };
+}
+
 module.exports = {
   computePriorities,
   computeEigenvector,
@@ -385,5 +420,6 @@ module.exports = {
   aggregateMatrices,
   computeKendallW,
   prioritiesToRanks,
+  findMostInconsistentTriad,
   RI_TABLE,
 };
