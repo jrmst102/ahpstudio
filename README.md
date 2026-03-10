@@ -1,6 +1,6 @@
 # AHP Studio
 
-**Version:** 1.1.8  
+**Version:** 1.1.9  
 **Author:** Dr. Jose Mendoza  
 **Copyright 2026 by Dr. Jose Mendoza.**
 
@@ -134,6 +134,7 @@ No database server is required.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1.9 | 2026-03-10 | Fix: Corrected inverted comparison scale — sliding toward an item now correctly marks it as preferred in the AHP computation |
 | 1.1.8 | 2026-03-10 | UX: Question-based comparison framing, visual hierarchy map, step-based navigation; deployment updated to DigitalOcean Droplet with GitHub Actions CI/CD |
 | 1.1.7 | 2026-03-10 | Version display on login screen and footer; rebuilt client to fix participation link login redirect |
 | 1.1.6 | 2026-03-10 | LLM-powered intelligence layer: AI report narratives (OpenAI), consistency coaching for participants, smart validation with "Review My Setup" panel, triad-based inconsistency detection; consolidated respondents into participants; comparisons locked until owner adds themselves as a participant; reduced base font size |
