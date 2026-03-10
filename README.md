@@ -1,6 +1,6 @@
 # AHP Studio
 
-**Version:** 1.1.7  
+**Version:** 1.1.8  
 **Author:** Dr. Jose Mendoza  
 **Copyright 2026 by Dr. Jose Mendoza.**
 
@@ -13,7 +13,7 @@ AHP Studio is a web-based decision support application implementing the Analytic
 - **Decision Problem Management** — Create, save, load, delete, and import/export `.AHP` files
 - **Criteria & Sub-criteria** — Add up to 10 criteria, each with up to 6 sub-criteria for hierarchical structuring
 - **Alternatives Management** — Add up to 12 alternatives per problem
-- **Wizard-Style Comparisons** — Step-by-step pairwise comparison wizard presenting one pair at a time with back/forward navigation and progress tracking; traditional matrix view also available via toggle
+- **Wizard-Style Comparisons** — Step-by-step pairwise comparison wizard presenting one pair at a time with back/forward navigation and progress tracking; question-based framing (e.g. "Which criteria matter most?") with contextual descriptions; visual hierarchy map showing the decision tree with the active step highlighted; traditional matrix view also available via toggle
 - **Participant Participation** — Add up to 12 participants per problem; each receives a unique tokenized link to complete comparisons without creating an account. The problem owner can also add themselves as a participant; comparisons are locked until they do so.
 - **PIN Protection** — Optionally protect participation links with a 4-digit PIN (bcrypt-hashed, 3-attempt lockout)
 - **Anonymous Mode** — Enable anonymous participation where submitted responses are dissociated from participant identities
@@ -36,7 +36,7 @@ AHP Studio is a web-based decision support application implementing the Analytic
 - **Backend:** Node.js, Express.js 4.18, JWT, bcryptjs, ws (WebSocket)
 - **Frontend:** React 18, Tailwind CSS, Axios
 - **Storage:** DigitalOcean Spaces (@aws-sdk/client-s3 v3) — no database required
-- **Hosting:** DigitalOcean App Platform
+- **Hosting:** DigitalOcean Droplet (nginx + PM2), GitHub Actions CI/CD
 - **Computation:** mathjs (eigenvector, consistency metrics), Kendall's W (built-in)
 - **LLM Integration:** OpenAI API (gpt-4o default, gpt-4o-mini fallback) — optional, graceful degradation when unavailable
 
@@ -80,14 +80,26 @@ AHP Studio is a web-based decision support application implementing the Analytic
    - Password: `AHPAdmin2026!`
    - **Change this password on first login!**
 
-## Deployment (DigitalOcean App Platform)
+## Deployment (DigitalOcean Droplet)
 
-1. Push to GitHub — App Platform auto-deploys from `main`.
-2. Set environment variables in the App Platform dashboard:
-   - `JWT_SECRET`, `SPACES_ENDPOINT`, `SPACES_KEY`, `SPACES_SECRET`, `SPACES_BUCKET`, `SPACES_REGION`, `NODE_ENV`, `APP_URL`
-   - LLM (optional): `OPENAI_API_KEY`, `LLM_ENABLED`, `OPENAI_MODEL`, `OPENAI_FALLBACK_MODEL`, `OPENAI_TIMEOUT_MS`, `OPENAI_MAX_RETRIES`
-3. Build command: `npm run build` (client is pre-built and committed; server deps installed by `npm ci`)
-4. Run command: `npm start` (runs `node server/src/app.js`)
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full instructions.
+
+1. Set up a Droplet with Node.js 20, nginx, PM2, and Let's Encrypt.
+2. Clone the repo to `/var/www/ahpstudio` and configure `.env`.
+3. Configure nginx using `nginx/ahpstudio.conf`.
+4. Start the backend with `pm2 start src/app.js --name ahpstudio`.
+
+### CI/CD (GitHub Actions)
+
+Pushing to `main` triggers the workflow in `.github/workflows/deploy.yml`:
+- **Test** — runs server tests with coverage
+- **Build** — builds the React client
+- **Deploy** — SCPs build artifacts and server code to the Droplet and restarts PM2
+
+Required GitHub repository secrets:
+- `DO_SSH_KEY` — private SSH key for the Droplet
+- `DO_HOST` — Droplet IP address
+- `DO_USER` — SSH user (e.g. `root`)
 
 ## Data Storage
 All data is stored in DigitalOcean Spaces (S3-compatible):
@@ -122,6 +134,7 @@ No database server is required.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1.8 | 2026-03-10 | UX: Question-based comparison framing, visual hierarchy map, step-based navigation; deployment updated to DigitalOcean Droplet with GitHub Actions CI/CD |
 | 1.1.7 | 2026-03-10 | Version display on login screen and footer; rebuilt client to fix participation link login redirect |
 | 1.1.6 | 2026-03-10 | LLM-powered intelligence layer: AI report narratives (OpenAI), consistency coaching for participants, smart validation with "Review My Setup" panel, triad-based inconsistency detection; consolidated respondents into participants; comparisons locked until owner adds themselves as a participant; reduced base font size |
 | 1.1.5 | 2026-03-08 | Participant participation via shareable tokenized links, PIN protection, anonymous mode, Kendall's W consensus measurement, multi-round Delphi iteration, WebSocket real-time status, enhanced decision report with consensus analysis, max 12 participants |
