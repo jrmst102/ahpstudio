@@ -62,6 +62,7 @@ const ComparisonWizard = ({ items, matrix, onCellChange, onComplete, contextLabe
   }, [items]);
 
   const [currentIdx, setCurrentIdx] = useState(0);
+  const [showHelp, setShowHelp] = useState(false);
 
   if (items.length < 2) {
     return <p className="text-nyu-text-secondary italic">Add at least 2 items to begin comparisons.</p>;
@@ -112,7 +113,29 @@ const ComparisonWizard = ({ items, matrix, onCellChange, onComplete, contextLabe
             style={{ width: `${((currentIdx + 1) / pairs.length) * 100}%` }}
           />
         </div>
+        <button
+          onClick={() => setShowHelp(!showHelp)}
+          className="flex items-center gap-1 text-xs text-nyu-violet hover:text-nyu-violet-dark font-medium px-2 py-1 rounded border border-nyu-violet/30 hover:bg-nyu-violet-ultra transition-colors"
+          title="How to compare"
+        >
+          <span className="text-sm">?</span> Help
+        </button>
       </div>
+
+      {/* Help panel */}
+      {showHelp && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900">
+          <h5 className="font-semibold mb-2">How Pairwise Comparisons Work</h5>
+          <ul className="space-y-1.5 list-disc list-inside">
+            <li>You are comparing two items at a time. Drag the slider toward the item you consider <strong>more important</strong>.</li>
+            <li>The further you drag, the stronger your preference. The center means <strong>equal importance</strong>.</li>
+            <li><strong>1</strong> = Equal &nbsp;|&nbsp; <strong>3</strong> = Moderate &nbsp;|&nbsp; <strong>5</strong> = Strong &nbsp;|&nbsp; <strong>7</strong> = Very Strong &nbsp;|&nbsp; <strong>9</strong> = Extreme</li>
+            <li>Try to be consistent: if A &gt; B and B &gt; C, then A should also &gt; C.</li>
+            <li>There are no right or wrong answers — this captures <em>your</em> judgment.</li>
+          </ul>
+          <button onClick={() => setShowHelp(false)} className="mt-2 text-xs text-blue-600 hover:text-blue-800 underline">Close</button>
+        </div>
+      )}
 
       {/* Comparison card */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-8">
@@ -134,7 +157,11 @@ const ComparisonWizard = ({ items, matrix, onCellChange, onComplete, contextLabe
         {/* Intensity description */}
         <div className="text-center mb-4">
           <span className={`text-base font-semibold ${favoursLeft ? 'text-blue-700' : favoursRight ? 'text-orange-700' : 'text-gray-600'}`}>
-            {sliderInfo.desc}
+            {favoursLeft
+              ? `${sliderInfo.desc} for ${pair.left}`
+              : favoursRight
+                ? `${sliderInfo.desc} for ${pair.right}`
+                : sliderInfo.desc}
           </span>
           <span className="ml-2 text-sm text-gray-400">({formatValue(val)})</span>
         </div>

@@ -141,11 +141,23 @@ async function deleteProblem(req, res) {
 async function saveProblem(req, res) {
   try {
     const { id } = req.params;
-    const problemData = req.body;
+    const incoming = req.body;
     const problems = await loadIndex(req.user.id);
     const idx = problems.findIndex(p => p.id === id);
     if (idx === -1) {
       return res.status(404).json({ error: { message: 'Problem not found' } });
+    }
+
+    // Merge with existing file to preserve participant data not sent by the client
+    let problemData = incoming;
+    const existing = await loadProblemFile(req.user.id, id);
+    if (existing) {
+      const preserveKeys = ['participants', 'config', 'currentRound', 'roundStatus'];
+      for (const key of preserveKeys) {
+        if (existing[key] !== undefined && incoming[key] === undefined) {
+          problemData[key] = existing[key];
+        }
+      }
     }
 
     const fileKey = await storageService.uploadProblemFile(req.user.id, id, problemData);
