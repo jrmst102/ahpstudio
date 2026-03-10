@@ -7,7 +7,6 @@ import llmService from '../../services/llmService';
  * LLM-generated narrative sections before generating the PDF report.
  */
 const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
-  const [narratives, setNarratives] = useState(null);
   const [editedNarratives, setEditedNarratives] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,7 +29,6 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
     setError('');
     try {
       const result = await llmService.generateNarratives(problemId, contextPayload);
-      setNarratives(result.narratives);
       setEditedNarratives({ ...result.narratives });
       setRegenerationsRemaining(result.regenerationsRemaining);
       setLlmAvailable(true);
@@ -49,7 +47,6 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
     setError('');
     try {
       const result = await llmService.regenerateNarratives(problemId, contextPayload);
-      setNarratives(result.narratives);
       setEditedNarratives({ ...result.narratives });
       setRegenerationsRemaining(result.regenerationsRemaining);
       if (onNarrativesReady) onNarrativesReady(result.narratives);

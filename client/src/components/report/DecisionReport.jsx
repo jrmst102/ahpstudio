@@ -2,11 +2,6 @@ import React, { useRef } from 'react';
 import Button from '../common/Button';
 import { CHART_COLORS } from '../../utils/constants';
 
-function formatValue(v) {
-  if (v >= 1) return String(Math.round(v));
-  return '1/' + String(Math.round(1 / v));
-}
-
 /**
  * DecisionReport – renders a printable report summarising the AHP analysis.
  *
