@@ -1,6 +1,6 @@
 # AHP Studio
 
-**Version:** 1.1.5  
+**Version:** 1.1.6  
 **Author:** Dr. Jose Mendoza  
 **Copyright 2026 by Dr. Jose Mendoza.**
 
@@ -26,6 +26,9 @@ AHP Studio is a web-based decision support application implementing the Analytic
 - **Global Synthesis** — Normalized and idealized global priority rankings with sub-criteria weight aggregation
 - **Sensitivity Analysis** — Vary criterion weights to detect rank reversals
 - **Decision Report** — Generate a printable report with problem definition, hierarchy, participants, consensus analysis (Kendall's W), criteria weights, alternative priorities, final ranking, auto-generated decision rationale, round history, and sensitivity summary
+- **AI Report Narratives** — LLM-generated decision rationale, consensus summary, sensitivity commentary, and limitations sections embedded in the report; inline editing and up to 3 regenerations per session
+- **Consistency Coaching** — After submitting comparisons, participants receive AI-powered coaching cards for inconsistent groups (CR > 10%), explaining the most problematic triad in plain language with a "Revise This Group" shortcut
+- **Smart Validation** — "Review My Setup" button in the problem editor runs deterministic checks (cognitive load, limits) plus AI-powered structural observations (redundancy, coverage gaps, naming clarity, scale concerns) displayed in a slide-in panel
 - **Local File Save** — Save `.AHP` files directly to your computer; upload them to resume later
 - **User Management** — Admin panel for user CRUD, account unlock, password reset
 - **Authentication** — JWT with httpOnly cookies, bcryptjs hashing, 3-attempt account lockout
@@ -37,6 +40,7 @@ AHP Studio is a web-based decision support application implementing the Analytic
 - **Storage:** DigitalOcean Spaces (@aws-sdk/client-s3 v3) — no database required
 - **Hosting:** DigitalOcean App Platform
 - **Computation:** mathjs (eigenvector, consistency metrics), Kendall's W (built-in)
+- **LLM Integration:** OpenAI API (gpt-4o default, gpt-4o-mini fallback) — optional, graceful degradation when unavailable
 
 ## Prerequisites
 - Node.js 18+
@@ -83,6 +87,7 @@ AHP Studio is a web-based decision support application implementing the Analytic
 1. Push to GitHub — App Platform auto-deploys from `main`.
 2. Set environment variables in the App Platform dashboard:
    - `JWT_SECRET`, `SPACES_ENDPOINT`, `SPACES_KEY`, `SPACES_SECRET`, `SPACES_BUCKET`, `SPACES_REGION`, `NODE_ENV`, `APP_URL`
+   - LLM (optional): `OPENAI_API_KEY`, `LLM_ENABLED`, `OPENAI_MODEL`, `OPENAI_FALLBACK_MODEL`, `OPENAI_TIMEOUT_MS`, `OPENAI_MAX_RETRIES`
 3. Build command: `npm run build` (client is pre-built and committed; server deps installed by `npm ci`)
 4. Run command: `npm start` (runs `node server/src/app.js`)
 
@@ -95,10 +100,31 @@ All data is stored in DigitalOcean Spaces (S3-compatible):
 
 No database server is required.
 
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `JWT_SECRET` | Yes | — | Secret for signing JWTs |
+| `SPACES_ENDPOINT` | Yes | — | DigitalOcean Spaces endpoint |
+| `SPACES_KEY` | Yes | — | Spaces access key |
+| `SPACES_SECRET` | Yes | — | Spaces secret key |
+| `SPACES_BUCKET` | Yes | — | Spaces bucket name |
+| `SPACES_REGION` | Yes | — | Spaces region |
+| `APP_URL` | No | `http://localhost:3000` | Frontend URL for CORS |
+| `NODE_ENV` | No | `development` | Environment mode |
+| `PORT` | No | `3001` | Server port |
+| `OPENAI_API_KEY` | No | — | OpenAI API key (enables LLM features) |
+| `LLM_ENABLED` | No | `true` | Set to `false` to disable LLM features even with an API key |
+| `OPENAI_MODEL` | No | `gpt-4o` | Primary OpenAI model |
+| `OPENAI_FALLBACK_MODEL` | No | `gpt-4o-mini` | Fallback model on primary failure |
+| `OPENAI_TIMEOUT_MS` | No | `30000` | API request timeout |
+| `OPENAI_MAX_RETRIES` | No | `2` | Retries per model before fallback |
+
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1.6 | 2026-03-10 | LLM-powered intelligence layer: AI report narratives (OpenAI), consistency coaching for participants, smart validation with "Review My Setup" panel, triad-based inconsistency detection |
 | 1.1.5 | 2026-03-08 | Participant participation via shareable tokenized links, PIN protection, anonymous mode, Kendall's W consensus measurement, multi-round Delphi iteration, WebSocket real-time status, enhanced decision report with consensus analysis, max 12 participants |
 | 1.1.4 | 2026-03-08 | Wizard-style comparisons, respondent management (up to 6) with ranking/weighting, weighted geometric mean aggregation, decision report generation |
 | 1.1.3 | — | Pairwise comparison matrices, sub-criteria support, sensitivity analysis |
@@ -116,6 +142,7 @@ No database server is required.
 | **Compute** | `POST /api/v1/compute/priorities`, `POST /compute/consistency`, `POST /compute/synthesize`, `POST /compute/sensitivity`, `POST /compute/aggregate` |
 | **Admin** | `GET/POST /api/v1/admin/users`, `PUT/DELETE /admin/users/:id`, `POST /admin/users/:id/unlock`, `POST /admin/users/:id/reset-password` |
 | **WebSocket** | `ws://host/ws/problems/:id/status` (admin JWT required) |
+| **LLM** | `GET /api/v1/llm/status`, `POST /problems/:id/report/narratives`, `POST /problems/:id/report/narratives/regenerate`, `POST /problems/:id/validate-structure` |
 | **Health** | `GET /api/v1/health` |
 
 ## Security
@@ -127,6 +154,8 @@ No database server is required.
 - Participant session: short-lived JWT (4h) in httpOnly cookie after PIN verification
 - HTTPS, CORS, Helmet, rate limiting (60 req/min API, 5 req/15min PIN verification)
 - Express `trust proxy` enabled for reverse proxy deployments
+- LLM input sanitisation: length limits, control character stripping, prompt injection mitigation via system prompts
+- LLM rate controls: 10-second validation cooldown, 3 regenerations per session (1-hour TTL)
 
 ---
 Copyright 2026 by Dr. Jose Mendoza. All rights reserved.
