@@ -7,6 +7,7 @@ import problemService from '../services/problemService';
 import Alert from '../components/common/Alert';
 import Button from '../components/common/Button';
 import ComparisonWizard from '../components/comparisons/ComparisonWizard';
+import HierarchyMap from '../components/comparisons/HierarchyMap';
 import ParticipantManager from '../components/participants/ParticipantManager';
 import DecisionReport from '../components/report/DecisionReport';
 import NarrativePreview from '../components/report/NarrativePreview';
@@ -1292,6 +1293,8 @@ const WizardComparisons = ({
       g.push({
         key: 'criteria',
         label: 'Criteria Comparison',
+        question: 'Which criteria matter most for your decision?',
+        description: 'Compare how important each criterion is relative to the others.',
         items: criteria,
         matrix: criteriaMatrix,
         onCellChange: (i, j, val) => onCriteriaCellChange(i, j, val),
@@ -1305,6 +1308,8 @@ const WizardComparisons = ({
         g.push({
           key: `sub-${c}`,
           label: `Sub-criteria under "${c}"`,
+          question: `Which aspects of "${c}" matter most?`,
+          description: `Compare the sub-criteria within "${c}" to determine their relative importance.`,
           items: subs,
           matrix: subCriteriaMatrices[c] || emptyMatrix(subs.length),
           onCellChange: (i, j, val) => onSubCriteriaCellChange(c, i, j, val),
@@ -1313,6 +1318,8 @@ const WizardComparisons = ({
           g.push({
             key: `${c}::${sc}`,
             label: `Alternatives w.r.t. "${c}" > "${sc}"`,
+            question: `Considering "${sc}", which option is best?`,
+            description: `Compare the alternatives based on "${sc}" (a sub-criterion of "${c}").`,
             items: alternatives,
             matrix: subCriteriaAltMatrices[`${c}::${sc}`] || emptyMatrix(alternatives.length),
             onCellChange: (i, j, val) => onSubCritAltCellChange(c, sc, i, j, val),
@@ -1322,6 +1329,8 @@ const WizardComparisons = ({
         g.push({
           key: `alt-${c}`,
           label: `Alternatives w.r.t. "${c}"`,
+          question: `Considering "${c}", which option is best?`,
+          description: `Compare the alternatives based specifically on how they perform on "${c}".`,
           items: alternatives,
           matrix: altMatrices[c] || emptyMatrix(alternatives.length),
           onCellChange: (i, j, val) => onAltCellChange(c, i, j, val),
@@ -1344,7 +1353,7 @@ const WizardComparisons = ({
       {/* Group progress */}
       <div className="mb-4 flex items-center justify-between">
         <span className="text-sm font-medium text-nyu-text-secondary">
-          Group {Math.min(groupIdx, groups.length - 1) + 1} of {groups.length}
+          Step {Math.min(groupIdx, groups.length - 1) + 1} of {groups.length}: {currentGroup.question || currentGroup.label}
         </span>
         <div className="flex gap-1">
           {groups.map((g, idx) => (
@@ -1358,12 +1367,20 @@ const WizardComparisons = ({
         </div>
       </div>
 
+      <HierarchyMap
+        criteria={criteria}
+        subCriteria={subCriteria}
+        alternatives={alternatives}
+        activeGroupKey={currentGroup.key}
+      />
+
       <ComparisonWizard
         key={currentGroup.key}
         items={currentGroup.items}
         matrix={currentGroup.matrix}
         onCellChange={currentGroup.onCellChange}
-        contextLabel={currentGroup.label}
+        contextLabel={currentGroup.question || currentGroup.label}
+        contextDescription={currentGroup.description}
         onComplete={() => {
           if (isLastGroup) {
             // All done
@@ -1380,7 +1397,7 @@ const WizardComparisons = ({
           onClick={() => setGroupIdx(Math.max(0, groupIdx - 1))}
           disabled={groupIdx === 0}
         >
-          ← Previous Group
+          ← Previous Step
         </Button>
         <div className="flex gap-3">
           <Button onClick={onSave} variant="outline" disabled={saving}>
@@ -1393,7 +1410,7 @@ const WizardComparisons = ({
           )}
           {!isLastGroup && (
             <Button onClick={() => setGroupIdx(groupIdx + 1)}>
-              Next Group →
+              Next Step →
             </Button>
           )}
         </div>

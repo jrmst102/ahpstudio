@@ -48,9 +48,10 @@ function formatValue(v) {
  *   matrix       – current comparison matrix
  *   onCellChange – (i, j, value) => void
  *   onComplete   – () => void   (called when user finishes all pairs)
- *   contextLabel – optional heading label (e.g. "Criteria" or "Alternatives w.r.t. Cost")
+ *   contextLabel – optional heading label (e.g. "Which criteria matter most?")
+ *   contextDescription – optional sentence explaining why this step matters
  */
-const ComparisonWizard = ({ items, matrix, onCellChange, onComplete, contextLabel }) => {
+const ComparisonWizard = ({ items, matrix, onCellChange, onComplete, contextLabel, contextDescription }) => {
   // Build list of unique pairs (i < j)
   const pairs = useMemo(() => {
     const p = [];
@@ -97,6 +98,9 @@ const ComparisonWizard = ({ items, matrix, onCellChange, onComplete, contextLabe
       {/* Header & progress */}
       {contextLabel && (
         <h4 className="text-lg font-semibold text-nyu-text-primary mb-1">{contextLabel}</h4>
+      )}
+      {contextDescription && (
+        <p className="text-sm text-nyu-text-secondary mb-3">{contextDescription}</p>
       )}
       <div className="flex items-center justify-between mb-6">
         <span className="text-sm text-nyu-text-secondary">

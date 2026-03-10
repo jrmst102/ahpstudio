@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import ComparisonWizard from '../components/comparisons/ComparisonWizard';
 import CoachingCard from '../components/comparisons/CoachingCard';
+import HierarchyMap from '../components/comparisons/HierarchyMap';
 
 const api = axios.create({ baseURL: '/api/v1', withCredentials: true });
 
@@ -79,6 +80,8 @@ const ParticipatePage = () => {
       g.push({
         key: 'criteria',
         label: 'Criteria Comparison',
+        question: 'Which criteria matter most for this decision?',
+        description: 'Compare how important each criterion is relative to the others.',
         items: criteria,
         matrixKey: 'criteriaMatrix',
       });
@@ -90,6 +93,8 @@ const ParticipatePage = () => {
         g.push({
           key: `sub-${c}`,
           label: `Sub-criteria under "${c}"`,
+          question: `Which aspects of "${c}" matter most?`,
+          description: `Compare the sub-criteria within "${c}" to determine their relative importance.`,
           items: subs,
           matrixKey: `subCriteriaMatrices.${c}`,
         });
@@ -97,6 +102,8 @@ const ParticipatePage = () => {
           g.push({
             key: `${c}::${sc}`,
             label: `Alternatives w.r.t. "${c}" > "${sc}"`,
+            question: `Considering "${sc}", which option is best?`,
+            description: `Compare the alternatives based on "${sc}" (a sub-criterion of "${c}").`,
             items: alternatives,
             matrixKey: `subCriteriaAltMatrices.${c}::${sc}`,
           });
@@ -105,6 +112,8 @@ const ParticipatePage = () => {
         g.push({
           key: `alt-${c}`,
           label: `Alternatives w.r.t. "${c}"`,
+          question: `Considering "${c}", which option is best?`,
+          description: `Compare the alternatives based specifically on how they perform on "${c}".`,
           items: alternatives,
           matrixKey: `altMatrices.${c}`,
         });
@@ -305,7 +314,7 @@ const ParticipatePage = () => {
         {/* Group progress */}
         <div className="mb-4 flex items-center justify-between">
           <span className="text-sm font-medium text-gray-500">
-            Group {Math.min(groupIdx, groups.length - 1) + 1} of {groups.length}
+            Step {Math.min(groupIdx, groups.length - 1) + 1} of {groups.length}
           </span>
           <div className="flex gap-1">
             {groups.map((g, idx) => (
@@ -327,16 +336,27 @@ const ParticipatePage = () => {
         )}
 
         {currentGroup && (
-          <ComparisonWizard
-            key={currentGroup.key}
-            items={currentGroup.items}
-            matrix={getMatrix(currentGroup.matrixKey) || emptyMatrix(currentGroup.items.length)}
-            onCellChange={(i, j, val) => handleCellChange(currentGroup.matrixKey, currentGroup.items, i, j, val)}
-            contextLabel={currentGroup.label}
-            onComplete={() => {
-              if (!isLastGroup) setGroupIdx(groupIdx + 1);
-            }}
-          />
+          <>
+            <HierarchyMap
+              criteria={data?.criteria || []}
+              subCriteria={data?.subCriteria || {}}
+              alternatives={data?.alternatives || []}
+              activeGroupKey={currentGroup.key}
+              goalLabel={data?.problemTitle}
+            />
+
+            <ComparisonWizard
+              key={currentGroup.key}
+              items={currentGroup.items}
+              matrix={getMatrix(currentGroup.matrixKey) || emptyMatrix(currentGroup.items.length)}
+              onCellChange={(i, j, val) => handleCellChange(currentGroup.matrixKey, currentGroup.items, i, j, val)}
+              contextLabel={currentGroup.question || currentGroup.label}
+              contextDescription={currentGroup.description}
+              onComplete={() => {
+                if (!isLastGroup) setGroupIdx(groupIdx + 1);
+              }}
+            />
+          </>
         )}
 
         {/* Navigation & actions */}
@@ -346,7 +366,7 @@ const ParticipatePage = () => {
             disabled={groupIdx === 0}
             className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-40 transition-colors"
           >
-            ← Previous Group
+            ← Previous Step
           </button>
           <div className="flex gap-3">
             <button
@@ -369,7 +389,7 @@ const ParticipatePage = () => {
                 onClick={() => setGroupIdx(groupIdx + 1)}
                 className="px-4 py-2 bg-purple-700 text-white rounded-lg font-semibold hover:bg-purple-800 transition-colors"
               >
-                Next Group →
+                Next Step →
               </button>
             )}
           </div>
