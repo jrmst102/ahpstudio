@@ -26,8 +26,9 @@ api.interceptors.response.use(
   (error) => {
     // Handle 401 Unauthorized
     if (error.response?.status === 401) {
-      // Redirect to login if not already there
-      if (window.location.pathname !== '/login') {
+      // Don't redirect on participation or public pages
+      const path = window.location.pathname;
+      if (path !== '/login' && !path.startsWith('/participate/')) {
         window.location.href = '/login';
       }
     }
