@@ -850,6 +850,8 @@ const ProblemEditor = () => {
               currentRound={participantCurrentRound}
               roundStatus={participantRoundStatus}
               onDataChange={() => loadProblem(problemId)}
+              ownerName={user?.fullName || user?.username}
+              ownerEmail={user?.email}
             />
           </div>
         )}

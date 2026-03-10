@@ -39,6 +39,8 @@ const ParticipantManager = ({
   currentRound = 1,
   roundStatus: initialRoundStatus = 'open',
   onDataChange,
+  ownerName,
+  ownerEmail,
 }) => {
   const [participants, setParticipants] = useState([]);
   const [config, setConfig] = useState({
@@ -376,13 +378,46 @@ const ParticipantManager = ({
             )}
           </p>
         </div>
-        <Button
-          size="sm"
-          onClick={() => setShowAddModal(true)}
-          disabled={participants.length >= MAX_PARTICIPANTS || isFinalised}
-        >
-          + Add Participant
-        </Button>
+        <div className="flex items-center gap-2">
+          {!participants.some(p =>
+            (ownerEmail && p.email?.toLowerCase() === ownerEmail.toLowerCase()) ||
+            (ownerName && p.name?.toLowerCase() === ownerName.toLowerCase())
+          ) && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                setError('');
+                try {
+                  const result = await problemService.addParticipant(problemId, {
+                    name: ownerName || 'Owner',
+                    email: ownerEmail || undefined,
+                  });
+                  setLinkInfo({
+                    name: result.participant.name,
+                    link: result.participationLink,
+                    pin: result.pin,
+                  });
+                  setShowLinkModal(true);
+                  loadParticipants();
+                  onDataChange?.();
+                } catch (err) {
+                  setError(err.response?.data?.error?.message || 'Failed to add yourself');
+                }
+              }}
+              disabled={participants.length >= MAX_PARTICIPANTS || isFinalised}
+            >
+              + Add Myself
+            </Button>
+          )}
+          <Button
+            size="sm"
+            onClick={() => setShowAddModal(true)}
+            disabled={participants.length >= MAX_PARTICIPANTS || isFinalised}
+          >
+            + Add Participant
+          </Button>
+        </div>
       </div>
 
       {/* Configuration toggles */}
