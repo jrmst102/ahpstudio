@@ -522,7 +522,9 @@ const ProblemEditor = () => {
       try {
         const consensusRes = await problemService.getConsensus(problemId);
         setConsensusData(consensusRes.consensus || null);
-      } catch { /* no participants yet — ignore */ }
+      } catch (consensusErr) {
+        console.warn('Consensus computation skipped:', consensusErr?.response?.data?.error?.message || consensusErr.message);
+      }
 
       setActiveTab('results');
     } catch (err) {
@@ -1113,9 +1115,14 @@ const ProblemEditor = () => {
                         variant="outline"
                         onClick={async () => {
                           try {
-                            const data = await problemService.getConsensus(problemId);
-                            setConsensusData(data.consensus || null);
-                          } catch { /* silently ignore if no participants */ }
+                            const res = await problemService.getConsensus(problemId);
+                            setConsensusData(res.consensus || null);
+                            if (!res.consensus) {
+                              setError(res.message || 'At least 2 completed participants needed for consensus.');
+                            }
+                          } catch (err) {
+                            setError(err?.response?.data?.error?.message || 'Failed to compute consensus');
+                          }
                         }}
                       >
                         {consensusData ? 'Refresh' : 'Compute Consensus'}
@@ -1134,7 +1141,7 @@ const ProblemEditor = () => {
                         )}
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-400">Add participants and compute to see consensus metrics.</p>
+                      <p className="text-sm text-gray-400">At least 2 participants must submit their comparisons before consensus can be measured. Click "Compute Consensus" after participants have submitted.</p>
                     )}
                   </div>
                 )}
