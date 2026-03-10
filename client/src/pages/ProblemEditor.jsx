@@ -6,7 +6,6 @@ import problemService from '../services/problemService';
 import Alert from '../components/common/Alert';
 import Button from '../components/common/Button';
 import ComparisonWizard from '../components/comparisons/ComparisonWizard';
-import RespondentManager from '../components/respondents/RespondentManager';
 import ParticipantManager from '../components/participants/ParticipantManager';
 import DecisionReport from '../components/report/DecisionReport';
 import NarrativePreview from '../components/report/NarrativePreview';
@@ -107,11 +106,6 @@ const ProblemEditor = () => {
   const [sensitivityCriterion, setSensitivityCriterion] = useState('');
   const [sensitivityData, setSensitivityData] = useState(null);
 
-  // Respondents
-  const [respondents, setRespondents] = useState([]);
-  const [respondentData, setRespondentData] = useState({}); // { respId: { criteriaMatrix, altMatrices, subCriteriaMatrices, subCriteriaAltMatrices } }
-  const [activeRespondentId, setActiveRespondentId] = useState(null);
-
   // Participants (v1.1.5 participant participation)
   const [participantConfig, setParticipantConfig] = useState({});
   const [participantCurrentRound, setParticipantCurrentRound] = useState(1);
@@ -144,8 +138,6 @@ const ProblemEditor = () => {
       setSubCriteria(d.subCriteria || {});
       setSubCriteriaMatrices(d.subCriteriaMatrices || {});
       setSubCriteriaAltMatrices(d.subCriteriaAltMatrices || {});
-      setRespondents(d.respondents || []);
-      setRespondentData(d.respondentData || {});
       setParticipantConfig(d.config || {});
       setParticipantCurrentRound(d.currentRound || 1);
       setParticipantRoundStatus(d.roundStatus || 'open');
@@ -157,8 +149,6 @@ const ProblemEditor = () => {
       setSubCriteria({});
       setSubCriteriaMatrices({});
       setSubCriteriaAltMatrices({});
-      setRespondents([]);
-      setRespondentData({});
       setParticipantConfig({});
       setParticipantCurrentRound(1);
       setParticipantRoundStatus('open');
@@ -166,7 +156,7 @@ const ProblemEditor = () => {
   }, [currentProblem]);
 
   /* ─── Auto-save helper ─── */
-  const doSave = useCallback(async (crit, alts, cMat, aMats, subCrit, subCritMats, subCritAltMats, resps, respData) => {
+  const doSave = useCallback(async (crit, alts, cMat, aMats, subCrit, subCritMats, subCritAltMats) => {
     if (!problemId) return;
     setSaving(true);
     setError('');
@@ -180,8 +170,6 @@ const ProblemEditor = () => {
         subCriteria: subCrit || subCriteria,
         subCriteriaMatrices: subCritMats || subCriteriaMatrices,
         subCriteriaAltMatrices: subCritAltMats || subCriteriaAltMatrices,
-        respondents: resps || respondents,
-        respondentData: respData || respondentData,
       };
       await saveProblem(problemId, payload);
     } catch {
@@ -189,7 +177,7 @@ const ProblemEditor = () => {
     } finally {
       setSaving(false);
     }
-  }, [problemId, title, description, saveProblem, subCriteria, subCriteriaMatrices, subCriteriaAltMatrices, respondents, respondentData]);
+  }, [problemId, title, description, saveProblem, subCriteria, subCriteriaMatrices, subCriteriaAltMatrices]);
 
   const handleSave = async () => {
     // Save to server in the background
@@ -205,8 +193,6 @@ const ProblemEditor = () => {
       subCriteria,
       subCriteriaMatrices,
       subCriteriaAltMatrices,
-      respondents,
-      respondentData,
       criteriaWeights,
       altWeights,
       globalResults,
@@ -457,77 +443,6 @@ const ProblemEditor = () => {
     setAltMatrices({ ...altMatrices, [criterion]: m });
   };
 
-  /* ─── Respondent data editing ─── */
-  const getRespondentMatrix = (respId, key) => {
-    return respondentData[respId]?.[key];
-  };
-
-  const setRespondentCriteriaCell = (respId, i, j, val) => {
-    const rd = respondentData[respId] || {};
-    const old = rd.criteriaMatrix || emptyMatrix(criteria.length);
-    const m = old.map(r => [...r]);
-    m[i][j] = val;
-    m[j][i] = 1 / val;
-    setRespondentData({
-      ...respondentData,
-      [respId]: { ...rd, criteriaMatrix: m },
-    });
-  };
-
-  const setRespondentAltCell = (respId, criterion, i, j, val) => {
-    const rd = respondentData[respId] || {};
-    const aMats = rd.altMatrices || {};
-    const old = aMats[criterion] || emptyMatrix(alternatives.length);
-    const m = old.map(r => [...r]);
-    m[i][j] = val;
-    m[j][i] = 1 / val;
-    setRespondentData({
-      ...respondentData,
-      [respId]: { ...rd, altMatrices: { ...aMats, [criterion]: m } },
-    });
-  };
-
-  const setRespondentSubCriteriaCell = (respId, criterionName, i, j, val) => {
-    const rd = respondentData[respId] || {};
-    const scMats = rd.subCriteriaMatrices || {};
-    const subs = subCriteria[criterionName] || [];
-    const old = scMats[criterionName] || emptyMatrix(subs.length);
-    const m = old.map(r => [...r]);
-    m[i][j] = val;
-    m[j][i] = 1 / val;
-    setRespondentData({
-      ...respondentData,
-      [respId]: { ...rd, subCriteriaMatrices: { ...scMats, [criterionName]: m } },
-    });
-  };
-
-  const setRespondentSubCritAltCell = (respId, criterionName, subCritName, i, j, val) => {
-    const rd = respondentData[respId] || {};
-    const scAltMats = rd.subCriteriaAltMatrices || {};
-    const key = `${criterionName}::${subCritName}`;
-    const old = scAltMats[key] || emptyMatrix(alternatives.length);
-    const m = old.map(r => [...r]);
-    m[i][j] = val;
-    m[j][i] = 1 / val;
-    setRespondentData({
-      ...respondentData,
-      [respId]: { ...rd, subCriteriaAltMatrices: { ...scAltMats, [key]: m } },
-    });
-  };
-
-  /* ─── Respondent management callbacks ─── */
-  const handleRespondentsChange = (updated) => {
-    setRespondents(updated);
-    // Clean up data for removed respondents
-    const ids = new Set(updated.map(r => r.id));
-    const cleanedData = {};
-    Object.keys(respondentData).forEach(id => {
-      if (ids.has(id)) cleanedData[id] = respondentData[id];
-    });
-    setRespondentData(cleanedData);
-    doSave(criteria, alternatives, criteriaMatrix, altMatrices, undefined, undefined, undefined, updated, cleanedData);
-  };
-
   /* ─── Compute ─── */
   const handleCompute = async () => {
     if (criteria.length < 2) { setError('Need at least 2 criteria'); return; }
@@ -535,56 +450,10 @@ const ProblemEditor = () => {
     setComputing(true);
     setError('');
     try {
-      // Determine effective matrices — aggregate if respondents exist
-      const hasRespondents = respondents.length > 0;
       let effectiveCriteriaMatrix = criteriaMatrix;
       let effectiveAltMatrices = { ...altMatrices };
       let effectiveSubCriteriaMatrices = { ...subCriteriaMatrices };
       let effectiveSubCriteriaAltMatrices = { ...subCriteriaAltMatrices };
-
-      if (hasRespondents) {
-        const weights = respondents.map(r => r.weight);
-
-        // Aggregate criteria matrix
-        const critMats = respondents.map(r => {
-          const rd = respondentData[r.id] || {};
-          return rd.criteriaMatrix || emptyMatrix(criteria.length);
-        });
-        const aggCrit = await computeService.aggregateMatrices(critMats, weights);
-        effectiveCriteriaMatrix = aggCrit.aggregated;
-
-        // Aggregate alt matrices per criterion
-        for (const c of criteria) {
-          const subs = subCriteria[c] || [];
-          if (subs.length >= 2) {
-            // Aggregate sub-criteria matrix
-            const scMats = respondents.map(r => {
-              const rd = respondentData[r.id] || {};
-              return rd.subCriteriaMatrices?.[c] || emptyMatrix(subs.length);
-            });
-            const aggSc = await computeService.aggregateMatrices(scMats, weights);
-            effectiveSubCriteriaMatrices[c] = aggSc.aggregated;
-
-            // Aggregate sub-criteria alt matrices
-            for (const sc of subs) {
-              const key = `${c}::${sc}`;
-              const scAltMats = respondents.map(r => {
-                const rd = respondentData[r.id] || {};
-                return rd.subCriteriaAltMatrices?.[key] || emptyMatrix(alternatives.length);
-              });
-              const aggScAlt = await computeService.aggregateMatrices(scAltMats, weights);
-              effectiveSubCriteriaAltMatrices[key] = aggScAlt.aggregated;
-            }
-          } else {
-            const mats = respondents.map(r => {
-              const rd = respondentData[r.id] || {};
-              return rd.altMatrices?.[c] || emptyMatrix(alternatives.length);
-            });
-            const aggAlt = await computeService.aggregateMatrices(mats, weights);
-            effectiveAltMatrices[c] = aggAlt.aggregated;
-          }
-        }
-      }
 
       // 1. Criteria weights
       const cRes = await computeService.computePriorities(effectiveCriteriaMatrix);
@@ -672,7 +541,6 @@ const ProblemEditor = () => {
     { id: 'criteria', label: 'Criteria', icon: '📊' },
     { id: 'alternatives', label: 'Alternatives', icon: '🎯' },
     { id: 'participants', label: 'Participants', icon: '👥' },
-    { id: 'respondents', label: 'Respondents', icon: '📋' },
     { id: 'comparisons', label: 'Comparisons', icon: '⚖️' },
     { id: 'results', label: 'Results', icon: '📈' },
     { id: 'sensitivity', label: 'Sensitivity', icon: '🔍' },
@@ -984,32 +852,14 @@ const ProblemEditor = () => {
           </div>
         )}
 
-        {/* ──────────── RESPONDENTS TAB ──────────── */}
-        {activeTab === 'respondents' && (
-          <RespondentManager
-            respondents={respondents}
-            onRespondentsChange={handleRespondentsChange}
-            onSelectRespondent={(respId) => {
-              setActiveRespondentId(respId);
-              if (respId) setActiveTab('comparisons');
-            }}
-            activeRespondentId={activeRespondentId}
-            criteria={criteria}
-            alternatives={alternatives}
-            respondentData={respondentData}
-          />
-        )}
-
         {/* ──────────── COMPARISONS TAB ──────────── */}
         {activeTab === 'comparisons' && (
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xl font-semibold text-nyu-text-primary">Pairwise Comparisons</h3>
-              {/* Mode toggle — respondents always use wizard */}
-              {!activeRespondentId && (
-                <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
-                  <button
-                    onClick={() => setComparisonMode('wizard')}
+              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setComparisonMode('wizard')}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${comparisonMode === 'wizard' ? 'bg-nyu-violet text-white' : 'text-gray-600 hover:bg-gray-200'}`}
                   >
                     🧙 Wizard
