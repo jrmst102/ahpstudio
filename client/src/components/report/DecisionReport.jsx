@@ -19,8 +19,6 @@ function formatValue(v) {
  *   altWeights – { criterion: { alt: weight } }
  *   altCRs – { criterion: { cr, isConsistent } }
  *   globalResults – { normalized, idealized }
- *   respondents – [{ id, name, weight, rank }] or []
- *   respondentData – { respId: { criteriaMatrix, altMatrices, ... } }
  *   sensitivityData – sensitivity analysis result or null
  *   sensitivityCriterion – name of analysed criterion
  *   participants – [{ name, anonymousLabel, weight, status }] (v1.1.5)
@@ -40,8 +38,6 @@ const DecisionReport = ({
   altWeights = {},
   altCRs = {},
   globalResults,
-  respondents = [],
-  respondentData = {},
   sensitivityData,
   sensitivityCriterion,
   participants = [],
@@ -193,39 +189,7 @@ const DecisionReport = ({
           </ol>
         </div>
 
-        {/* Respondents (if any) */}
-        {respondents.length > 0 && (
-          <div className="section" style={{ pageBreakInside: 'avoid' }}>
-            <h2 style={{ color: '#57068C', marginTop: '32px' }}>3. Respondents</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ background: '#57068C', color: 'white', padding: '8px 12px', border: '1px solid #ddd' }}>Rank</th>
-                  <th style={{ background: '#57068C', color: 'white', padding: '8px 12px', border: '1px solid #ddd' }}>Name</th>
-                  <th style={{ background: '#57068C', color: 'white', padding: '8px 12px', border: '1px solid #ddd' }}>Weight</th>
-                  <th style={{ background: '#57068C', color: 'white', padding: '8px 12px', border: '1px solid #ddd' }}>Effective %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {respondents
-                  .sort((a, b) => a.rank - b.rank)
-                  .map(r => {
-                    const totalW = respondents.reduce((s, x) => s + x.weight, 0);
-                    return (
-                      <tr key={r.id}>
-                        <td style={{ padding: '8px 12px', border: '1px solid #ddd' }}>#{r.rank}</td>
-                        <td style={{ padding: '8px 12px', border: '1px solid #ddd' }}>{r.name}</td>
-                        <td style={{ padding: '8px 12px', border: '1px solid #ddd' }}>{r.weight}</td>
-                        <td style={{ padding: '8px 12px', border: '1px solid #ddd' }}>{totalW > 0 ? ((r.weight / totalW) * 100).toFixed(1) : 0}%</td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Participants (v1.1.5) */}
+        {/* Participants */}
         {participants.length > 0 && (
           <div className="section" style={{ pageBreakInside: 'avoid' }}>
             <h2 style={{ color: '#57068C', marginTop: '32px' }}>3. Participants</h2>
@@ -293,7 +257,7 @@ const DecisionReport = ({
         {/* Criteria Weights */}
         <div className="section" style={{ pageBreakInside: 'avoid' }}>
           <h2 style={{ color: '#57068C', marginTop: '32px' }}>
-            {respondents.length > 0 ? '4' : '3'}. Criteria Weights
+            {participants.length > 0 ? '4' : '3'}. Criteria Weights
           </h2>
           {criteriaCR && (
             <p style={{ color: criteriaCR.isConsistent ? '#2E7D32' : '#C62828' }}>
@@ -329,7 +293,7 @@ const DecisionReport = ({
         {/* Alternative Priorities per Criterion */}
         <div className="section" style={{ pageBreakInside: 'avoid' }}>
           <h2 style={{ color: '#57068C', marginTop: '32px' }}>
-            {respondents.length > 0 ? '5' : '4'}. Alternative Priorities by Criterion
+            {participants.length > 0 ? '5' : '4'}. Alternative Priorities by Criterion
           </h2>
           {criteria.map(c => (
             <div key={c} style={{ marginBottom: '16px' }}>
@@ -364,7 +328,7 @@ const DecisionReport = ({
         {/* Final Ranking */}
         <div className="section" style={{ pageBreakInside: 'avoid' }}>
           <h2 style={{ color: '#57068C', marginTop: '32px' }}>
-            {respondents.length > 0 ? '6' : '5'}. Final Ranking
+            {participants.length > 0 ? '6' : '5'}. Final Ranking
           </h2>
           <table>
             <thead>
@@ -391,7 +355,7 @@ const DecisionReport = ({
         {/* Decision Rationale */}
         <div className="section" style={{ pageBreakInside: 'avoid' }}>
           <h2 style={{ color: '#57068C', marginTop: '32px' }}>
-            {respondents.length > 0 ? '7' : '6'}. Decision Rationale
+            {participants.length > 0 ? '7' : '6'}. Decision Rationale
           </h2>
           <div style={{ backgroundColor: '#EEE6F3', borderLeft: '4px solid #57068C', padding: '16px', borderRadius: '4px' }}>
             <p style={{ fontSize: '15px', lineHeight: '1.7' }}>{narratives?.decisionRationale || buildRationale()}</p>
@@ -422,7 +386,7 @@ const DecisionReport = ({
         {sensitivityData && sensitivityCriterion && (
           <div className="section" style={{ pageBreakInside: 'avoid' }}>
             <h2 style={{ color: '#57068C', marginTop: '32px' }}>
-              {respondents.length > 0 ? '8' : '7'}. Sensitivity Analysis
+                {participants.length > 0 ? '8' : '7'}. Sensitivity Analysis
             </h2>
             <p>
               A sensitivity analysis was performed on the criterion "{sensitivityCriterion}" by varying its weight from 0% to 100%.
@@ -457,7 +421,7 @@ const DecisionReport = ({
         {narratives?.limitationsAndCaveats && (
           <div className="section" style={{ pageBreakInside: 'avoid' }}>
             <h2 style={{ color: '#57068C', marginTop: '32px' }}>
-              {respondents.length > 0 ? (sensitivityData ? '9' : '8') : (sensitivityData ? '8' : '7')}. Limitations &amp; Caveats
+              {participants.length > 0 ? (sensitivityData ? '9' : '8') : (sensitivityData ? '8' : '7')}. Limitations &amp; Caveats
             </h2>
             <div style={{ backgroundColor: '#FFF8E1', borderLeft: '4px solid #FFB300', padding: '16px', borderRadius: '4px' }}>
               <p style={{ fontSize: '14px', lineHeight: '1.7' }}>{narratives.limitationsAndCaveats}</p>

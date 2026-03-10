@@ -248,7 +248,7 @@ function updateMatrix(matrix, i, j, value) {
  * Aggregate multiple pairwise comparison matrices using the weighted geometric mean.
  * Each cell: aggregated[i][j] = ∏( matrices[k][i][j] ^ normalizedWeights[k] )
  * @param {Array<Array<Array<number>>>} matrices - Array of comparison matrices
- * @param {Array<number>} weights - Respondent weights (will be normalised internally)
+ * @param {Array<number>} weights - Participant weights (will be normalised internally)
  * @returns {Array<Array<number>>} Aggregated matrix
  */
 function aggregateMatrices(matrices, weights) {

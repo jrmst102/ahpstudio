@@ -14,11 +14,9 @@ AHP Studio is a web-based decision support application implementing the Analytic
 - **Criteria & Sub-criteria** — Add up to 10 criteria, each with up to 6 sub-criteria for hierarchical structuring
 - **Alternatives Management** — Add up to 12 alternatives per problem
 - **Wizard-Style Comparisons** — Step-by-step pairwise comparison wizard presenting one pair at a time with back/forward navigation and progress tracking; traditional matrix view also available via toggle
-- **Participant Participation** — Add up to 12 participants per problem; each receives a unique tokenized link to complete comparisons without creating an account
+- **Participant Participation** — Add up to 12 participants per problem; each receives a unique tokenized link to complete comparisons without creating an account. The problem owner can also add themselves as a participant.
 - **PIN Protection** — Optionally protect participation links with a 4-digit PIN (bcrypt-hashed, 3-attempt lockout)
 - **Anonymous Mode** — Enable anonymous participation where submitted responses are dissociated from participant identities
-- **Respondents (Legacy)** — Existing respondent workflow preserved for backward compatibility
-- **Respondent Ranking & Weighting** — Rank and assign weights to respondents/participants; matrices are aggregated using the weighted geometric mean method
 - **Consensus Measurement** — Kendall's coefficient of concordance (W) with chi-squared test and p-value for inter-rater agreement across criteria and alternative rankings
 - **Delphi Iteration** — Multi-round decision cycles: close rounds, share aggregated group results, and open new rounds so participants can revise comparisons toward convergence
 - **Real-Time Status** — WebSocket-powered live updates on the admin dashboard as participants save or submit comparisons; automatic fallback to polling
@@ -126,7 +124,7 @@ No database server is required.
 |---------|------|---------|
 | 1.1.6 | 2026-03-10 | LLM-powered intelligence layer: AI report narratives (OpenAI), consistency coaching for participants, smart validation with "Review My Setup" panel, triad-based inconsistency detection |
 | 1.1.5 | 2026-03-08 | Participant participation via shareable tokenized links, PIN protection, anonymous mode, Kendall's W consensus measurement, multi-round Delphi iteration, WebSocket real-time status, enhanced decision report with consensus analysis, max 12 participants |
-| 1.1.4 | 2026-03-08 | Wizard-style comparisons, respondent management (up to 6) with ranking/weighting, weighted geometric mean aggregation, decision report generation |
+| 1.1.4 | 2026-03-08 | Wizard-style comparisons, weighted geometric mean aggregation, decision report generation |
 | 1.1.3 | — | Pairwise comparison matrices, sub-criteria support, sensitivity analysis |
 
 ## API Endpoints

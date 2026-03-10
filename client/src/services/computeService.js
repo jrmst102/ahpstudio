@@ -59,7 +59,7 @@ const computeService = {
   /**
    * Aggregate multiple comparison matrices with weighted geometric mean
    * @param {Array<Array<Array<number>>>} matrices - Array of comparison matrices
-   * @param {Array<number>} weights - Respondent weights
+   * @param {Array<number>} weights - Participant weights
    * @returns {Promise<Object>} Aggregated matrix and priorities
    */
   async aggregateMatrices(matrices, weights) {

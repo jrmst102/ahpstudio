@@ -838,13 +838,18 @@ const ProblemEditor = () => {
 
         {/* ──────────── PARTICIPANTS TAB ──────────── */}
         {activeTab === 'participants' && problemId && (
-          <ParticipantManager
-            problemId={problemId}
-            config={participantConfig}
-            currentRound={participantCurrentRound}
-            roundStatus={participantRoundStatus}
-            onDataChange={() => loadProblem(problemId)}
-          />
+          <div>
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+              💡 You can add yourself as a participant if you also want to provide comparisons, or use this purely to collect input from others.
+            </div>
+            <ParticipantManager
+              problemId={problemId}
+              config={participantConfig}
+              currentRound={participantCurrentRound}
+              roundStatus={participantRoundStatus}
+              onDataChange={() => loadProblem(problemId)}
+            />
+          </div>
         )}
         {activeTab === 'participants' && !problemId && (
           <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
@@ -871,22 +876,10 @@ const ProblemEditor = () => {
                     📊 Matrix
                   </button>
                 </div>
-              )}
-            </div>
-
-            {activeRespondentId && (
-              <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg flex items-center justify-between">
-                <span className="text-sm text-purple-800">
-                  Entering comparisons for: <strong>{respondents.find(r => r.id === activeRespondentId)?.name}</strong>
-                </span>
-                <Button size="sm" variant="outline" onClick={() => setActiveRespondentId(null)}>
-                  Exit Respondent Mode
-                </Button>
               </div>
-            )}
 
             <p className="text-nyu-text-secondary mb-1">
-              {comparisonMode === 'wizard' || activeRespondentId
+              {comparisonMode === 'wizard'
                 ? 'Compare items one pair at a time. Use the slider to indicate preference and intensity.'
                 : 'Use sliders to compare items using Saaty\'s 1–9 scale.'}
             </p>
@@ -896,29 +889,20 @@ const ProblemEditor = () => {
 
             {criteria.length < 2 || alternatives.length < 2 ? (
               <Alert type="warning" message="Add at least 2 criteria and 2 alternatives before making comparisons." />
-            ) : (comparisonMode === 'wizard' || activeRespondentId) ? (
+            ) : comparisonMode === 'wizard' ? (
               /* ── WIZARD MODE ── */
               <WizardComparisons
                 criteria={criteria}
                 alternatives={alternatives}
                 subCriteria={subCriteria}
-                activeRespondentId={activeRespondentId}
-                criteriaMatrix={activeRespondentId ? (respondentData[activeRespondentId]?.criteriaMatrix || emptyMatrix(criteria.length)) : criteriaMatrix}
-                altMatrices={activeRespondentId ? (respondentData[activeRespondentId]?.altMatrices || {}) : altMatrices}
-                subCriteriaMatrices={activeRespondentId ? (respondentData[activeRespondentId]?.subCriteriaMatrices || {}) : subCriteriaMatrices}
-                subCriteriaAltMatrices={activeRespondentId ? (respondentData[activeRespondentId]?.subCriteriaAltMatrices || {}) : subCriteriaAltMatrices}
-                onCriteriaCellChange={activeRespondentId
-                  ? (i, j, val) => setRespondentCriteriaCell(activeRespondentId, i, j, val)
-                  : setCriteriaCell}
-                onAltCellChange={activeRespondentId
-                  ? (c, i, j, val) => setRespondentAltCell(activeRespondentId, c, i, j, val)
-                  : setAltCell}
-                onSubCriteriaCellChange={activeRespondentId
-                  ? (c, i, j, val) => setRespondentSubCriteriaCell(activeRespondentId, c, i, j, val)
-                  : setSubCriteriaCell}
-                onSubCritAltCellChange={activeRespondentId
-                  ? (c, sc, i, j, val) => setRespondentSubCritAltCell(activeRespondentId, c, sc, i, j, val)
-                  : setSubCritAltCell}
+                criteriaMatrix={criteriaMatrix}
+                altMatrices={altMatrices}
+                subCriteriaMatrices={subCriteriaMatrices}
+                subCriteriaAltMatrices={subCriteriaAltMatrices}
+                onCriteriaCellChange={setCriteriaCell}
+                onAltCellChange={setAltCell}
+                onSubCriteriaCellChange={setSubCriteriaCell}
+                onSubCritAltCellChange={setSubCritAltCell}
                 onSave={() => doSave(criteria, alternatives, criteriaMatrix, altMatrices)}
                 onCompute={handleCompute}
                 saving={saving}
@@ -1229,8 +1213,6 @@ const ProblemEditor = () => {
               altWeights={altWeights}
               altCRs={altCRs}
               globalResults={globalResults}
-              respondents={respondents}
-              respondentData={respondentData}
               sensitivityData={sensitivityData}
               sensitivityCriterion={sensitivityCriterion}
               consensus={consensusData}
