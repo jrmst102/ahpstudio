@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProblem } from '../context/ProblemContext';
+import { useAuth } from '../context/AuthContext';
 import computeService from '../services/computeService';
 import problemService from '../services/problemService';
 import Alert from '../components/common/Alert';
@@ -67,6 +68,7 @@ const ProblemEditor = () => {
   const { problemId } = useParams();
   const navigate = useNavigate();
   const { currentProblem, loadProblem, updateProblem, saveProblem, loading } = useProblem();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('definition');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -858,7 +860,29 @@ const ProblemEditor = () => {
         )}
 
         {/* ──────────── COMPARISONS TAB ──────────── */}
-        {activeTab === 'comparisons' && (
+        {activeTab === 'comparisons' && (() => {
+          const participants = currentProblem?.data?.participants || [];
+          const ownerEmail = user?.email?.toLowerCase();
+          const ownerName = user?.fullName?.toLowerCase() || user?.username?.toLowerCase();
+          const isOwnerParticipant = participants.some(p =>
+            (ownerEmail && p.email?.toLowerCase() === ownerEmail) ||
+            (ownerName && p.name?.toLowerCase() === ownerName)
+          );
+
+          if (!isOwnerParticipant) {
+            return (
+              <div className="text-center py-16 border-2 border-dashed border-gray-300 rounded-lg">
+                <p className="text-4xl mb-4">🔒</p>
+                <h3 className="text-xl font-semibold text-nyu-text-primary mb-2">Comparisons Locked</h3>
+                <p className="text-nyu-text-secondary mb-4">
+                  To make pairwise comparisons, add yourself as a participant first.
+                </p>
+                <Button onClick={() => setActiveTab('participants')}>Go to Participants</Button>
+              </div>
+            );
+          }
+
+          return (
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xl font-semibold text-nyu-text-primary">Pairwise Comparisons</h3>
@@ -978,7 +1002,8 @@ const ProblemEditor = () => {
               </>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* ──────────── RESULTS TAB ──────────── */}
         {activeTab === 'results' && (
