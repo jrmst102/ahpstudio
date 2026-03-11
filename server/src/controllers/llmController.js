@@ -36,9 +36,14 @@ async function generateNarratives(req, res) {
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Generate narratives error:', error);
-    res.status(500).json({
-      error: { message: 'AI-generated narrative is temporarily unavailable. The report will use a standard summary.' },
+    console.error('Generate narratives error:', error.message || error);
+    const isTimeout = error.message?.includes('timeout') || error.message?.includes('time budget') || error.code === 'ETIMEDOUT';
+    const status = isTimeout ? 504 : 500;
+    const message = isTimeout
+      ? 'The AI service took too long to respond. Please try again.'
+      : 'AI-generated narrative is temporarily unavailable. The report will use a standard summary.';
+    res.status(status).json({
+      error: { message },
     });
   }
 }

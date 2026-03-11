@@ -52,16 +52,27 @@ function sanitizeElementName(name) {
  * @param {string} userPrompt
  * @returns {string} Raw text response
  */
+// Hard budget: total time for all attempts must stay under Cloudflare's ~100s proxy limit.
+const TOTAL_BUDGET_MS = 85000;
+
 async function callLLM(systemPrompt, userPrompt) {
   const apiKey = CONFIG.apiKey();
   if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
 
-  const client = new OpenAI({ apiKey, timeout: CONFIG.timeoutMs() });
+  const startTime = Date.now();
+  // Cap per-call timeout so a single call can't exceed the total budget
+  const perCallTimeout = Math.min(CONFIG.timeoutMs(), TOTAL_BUDGET_MS);
+  const client = new OpenAI({ apiKey, timeout: perCallTimeout });
   const models = [CONFIG.model(), CONFIG.fallbackModel()];
   const maxRetries = CONFIG.maxRetries();
 
   for (const modelName of models) {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      // Abort if total budget is exhausted
+      const elapsed = Date.now() - startTime;
+      if (elapsed >= TOTAL_BUDGET_MS) {
+        throw new Error('LLM call exceeded total time budget');
+      }
       try {
         const response = await client.chat.completions.create({
           model: modelName,
