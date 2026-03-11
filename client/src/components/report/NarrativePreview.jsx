@@ -27,6 +27,7 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
   const generateNarratives = async () => {
     setLoading(true);
     setError('');
+    setLlmAvailable(true);
     try {
       const result = await llmService.generateNarratives(problemId, contextPayload);
       setEditedNarratives({ ...result.narratives });
@@ -34,7 +35,18 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
       setLlmAvailable(true);
       if (onNarrativesReady) onNarrativesReady(result.narratives);
     } catch (err) {
-      const msg = err.response?.data?.error?.message || 'AI-generated narrative is temporarily unavailable.';
+      const serverMsg = err.response?.data?.error?.message;
+      const status = err.response?.status;
+      let msg;
+      if (serverMsg) {
+        msg = serverMsg;
+      } else if (status) {
+        msg = `Server returned status ${status}. Please try again.`;
+      } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        msg = 'Request timed out. The AI service may be busy — please try again.';
+      } else {
+        msg = 'Could not connect to the AI service. Please try again.';
+      }
       setError(msg);
       setLlmAvailable(false);
     } finally {
