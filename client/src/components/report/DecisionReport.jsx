@@ -20,7 +20,7 @@ import { CHART_COLORS } from '../../utils/constants';
  *   consensus – { criteria: {W, chiSquared, pValue}, alternatives: {...}, global: {...} } (v1.1.5)
  *   anonymousMode – boolean (v1.1.5)
  *   currentRound – number (v1.1.5)
- *   narratives – { decisionRationale, consensusSummary, sensitivityCommentary, limitationsAndCaveats } (v1.2.0)
+ *   narratives – { narrative } (v1.2.0)
  */
 const DecisionReport = ({
   title,
@@ -241,9 +241,9 @@ const DecisionReport = ({
                 )}
               </tbody>
             </table>
-            {narratives?.consensusSummary && (
+            {narratives?.narrative && (
               <div style={{ marginTop: '16px', backgroundColor: '#F3F4F6', padding: '16px', borderRadius: '4px' }}>
-                <p style={{ fontSize: '14px', lineHeight: '1.7' }}>{narratives.consensusSummary}</p>
+                <p style={{ fontSize: '14px', lineHeight: '1.7' }}>{narratives.narrative}</p>
               </div>
             )}
           </div>
@@ -353,7 +353,7 @@ const DecisionReport = ({
             {participants.length > 0 ? '7' : '6'}. Decision Rationale
           </h2>
           <div style={{ backgroundColor: '#EEE6F3', borderLeft: '4px solid #57068C', padding: '16px', borderRadius: '4px' }}>
-            <p style={{ fontSize: '15px', lineHeight: '1.7' }}>{narratives?.decisionRationale || buildRationale()}</p>
+            <p style={{ fontSize: '15px', lineHeight: '1.7' }}>{buildRationale()}</p>
           </div>
 
           {/* Key supporting facts */}
@@ -404,7 +404,7 @@ const DecisionReport = ({
                 return ` Rank reversals were detected at ${reversals.length} point(s), indicating sensitivity to this criterion.`;
               })()}
             </p>
-            {narratives?.sensitivityCommentary && (
+            {false && (
               <div style={{ marginTop: '12px', backgroundColor: '#F3F4F6', padding: '16px', borderRadius: '4px' }}>
                 <p style={{ fontSize: '14px', lineHeight: '1.7' }}>{narratives.sensitivityCommentary}</p>
               </div>
@@ -413,7 +413,7 @@ const DecisionReport = ({
         )}
 
         {/* Limitations and Caveats */}
-        {narratives?.limitationsAndCaveats && (
+        {false && (
           <div className="section" style={{ pageBreakInside: 'avoid' }}>
             <h2 style={{ color: '#57068C', marginTop: '32px' }}>
               {participants.length > 0 ? (sensitivityData ? '9' : '8') : (sensitivityData ? '8' : '7')}. Limitations &amp; Caveats

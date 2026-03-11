@@ -7,19 +7,12 @@ import llmService from '../../services/llmService';
  * LLM-generated narrative sections before generating the PDF report.
  */
 const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
-  const [editedNarratives, setEditedNarratives] = useState(null);
+  const [narrative, setNarrative] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [regenerationsRemaining, setRegenerationsRemaining] = useState(3);
   const [llmAvailable, setLlmAvailable] = useState(true);
   const [modelUsed, setModelUsed] = useState('');
-
-  const sections = [
-    { key: 'decisionRationale', label: 'Decision Rationale' },
-    { key: 'consensusSummary', label: 'Consensus Summary' },
-    { key: 'sensitivityCommentary', label: 'Sensitivity Commentary' },
-    { key: 'limitationsAndCaveats', label: 'Limitations and Caveats' },
-  ];
 
   useEffect(() => {
     generateNarratives();
@@ -31,7 +24,8 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
     setLlmAvailable(true);
     try {
       const result = await llmService.generateNarratives(problemId, contextPayload);
-      setEditedNarratives({ ...result.narratives });
+      const text = result.narratives?.narrative || null;
+      setNarrative(text);
       setRegenerationsRemaining(result.regenerationsRemaining);
       if (result.model) setModelUsed(result.model);
       setLlmAvailable(true);
@@ -61,7 +55,8 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
     setError('');
     try {
       const result = await llmService.regenerateNarratives(problemId, contextPayload);
-      setEditedNarratives({ ...result.narratives });
+      const text = result.narratives?.narrative || null;
+      setNarrative(text);
       setRegenerationsRemaining(result.regenerationsRemaining);
       if (onNarrativesReady) onNarrativesReady(result.narratives);
     } catch (err) {
@@ -76,10 +71,9 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
     }
   };
 
-  const handleEdit = (key, value) => {
-    const updated = { ...editedNarratives, [key]: value };
-    setEditedNarratives(updated);
-    if (onNarrativesReady) onNarrativesReady(updated);
+  const handleEdit = (value) => {
+    setNarrative(value);
+    if (onNarrativesReady) onNarrativesReady({ narrative: value });
   };
 
   if (loading) {
@@ -108,31 +102,18 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
     );
   }
 
-  if (!editedNarratives) return null;
+  if (!narrative) return null;
 
   return (
     <div className="border border-gray-200 rounded-lg p-6 mt-4">
       <h4 className="text-lg font-semibold text-nyu-text-primary mb-4">AI-Generated Narrative</h4>
 
-      <div className="space-y-4">
-        {sections.map(({ key, label }) => (
-          <div key={key}>
-            <label className="block text-sm font-medium text-nyu-text-primary mb-1">{label}</label>
-            {editedNarratives[key] ? (
-              <textarea
-                value={editedNarratives[key]}
-                onChange={(e) => handleEdit(key, e.target.value)}
-                rows={4}
-                className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              />
-            ) : (
-              <p className="text-gray-400 text-sm italic p-3 bg-gray-50 rounded-lg">
-                AI-generated narrative unavailable for this section.
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
+      <textarea
+        value={narrative}
+        onChange={(e) => handleEdit(e.target.value)}
+        rows={8}
+        className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+      />
 
       <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
         <div>
