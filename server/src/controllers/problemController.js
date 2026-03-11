@@ -3,7 +3,22 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const storageService = require('../services/storageService');
 const ahpEngine = require('../services/ahpEngine');
+const userService = require('../services/userService');
 const { loadTokenIndex, saveTokenIndex } = require('./participationController');
+
+/**
+ * Check if the problem has real comparisons (criteria matrix has non-identity values).
+ */
+function hasCompletedComparisons(data) {
+  const mat = data.criteriaMatrix;
+  if (!mat || !Array.isArray(mat) || mat.length < 2) return false;
+  for (let i = 0; i < mat.length; i++) {
+    for (let j = 0; j < mat[i].length; j++) {
+      if (i !== j && mat[i][j] !== 1) return true;
+    }
+  }
+  return false;
+}
 
 // Problem index key per user – stores metadata for all their problems
 function indexKey(userId) {
@@ -156,6 +171,25 @@ async function saveProblem(req, res) {
       for (const key of preserveKeys) {
         if (existing[key] !== undefined && incoming[key] === undefined) {
           problemData[key] = existing[key];
+        }
+      }
+    }
+
+    // If the owner has a participant record and comparisons exist, mark them completed
+    if (problemData.participants?.length > 0 && hasCompletedComparisons(problemData)) {
+      const user = await userService.findUserById(req.user.id);
+      const ownerNames = [req.user.username, user?.fullName].filter(Boolean).map(n => n.toLowerCase());
+      const currentRound = String(problemData.currentRound || 1);
+
+      for (const p of problemData.participants) {
+        if (ownerNames.includes(p.name?.toLowerCase())) {
+          if (!p.roundData) p.roundData = {};
+          if (!p.roundData[currentRound]) p.roundData[currentRound] = {};
+          if (p.roundData[currentRound].status !== 'completed') {
+            p.roundData[currentRound].status = 'completed';
+            p.roundData[currentRound].completedAt = new Date().toISOString();
+          }
+          break;
         }
       }
     }
