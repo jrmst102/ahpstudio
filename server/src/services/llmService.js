@@ -4,7 +4,7 @@ const OpenAI = require('openai');
 
 const CONFIG = {
   apiKey: () => process.env.OPENAI_API_KEY,
-  model: () => process.env.OPENAI_MODEL || 'gpt-4o',
+  model: () => process.env.OPENAI_MODEL || 'gpt-4o-mini',
   fallbackModel: () => process.env.OPENAI_FALLBACK_MODEL || 'gpt-4o-mini',
   timeoutMs: () => parseInt(process.env.OPENAI_TIMEOUT_MS, 10) || 45000,
   maxRetries: () => parseInt(process.env.OPENAI_MAX_RETRIES, 10) || 0,
@@ -52,9 +52,10 @@ function sanitizeElementName(name) {
  * @param {string} userPrompt
  * @returns {string} Raw text response
  */
-// Hard budget: total time must stay under Nginx's default 60s proxy_read_timeout.
-const TOTAL_BUDGET_MS = 50000;
-const PER_CALL_TIMEOUT_MS = 25000;
+// Hard budget: must fit under DigitalOcean App Platform's proxy timeout.
+// Try primary model (15s), then fallback (15s) = 30s worst case.
+const TOTAL_BUDGET_MS = 28000;
+const PER_CALL_TIMEOUT_MS = 14000;
 
 async function callLLM(systemPrompt, userPrompt) {
   const apiKey = CONFIG.apiKey();
