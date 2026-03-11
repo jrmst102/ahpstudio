@@ -52,47 +52,42 @@ function sanitizeElementName(name) {
  * @param {string} userPrompt
  * @returns {string} Raw text response
  */
-// Hard budget: total time for all attempts must stay under Cloudflare's ~100s proxy limit.
-const TOTAL_BUDGET_MS = 85000;
+// Hard budget: total time must stay under Nginx's default 60s proxy_read_timeout.
+const TOTAL_BUDGET_MS = 50000;
+const PER_CALL_TIMEOUT_MS = 25000;
 
 async function callLLM(systemPrompt, userPrompt) {
   const apiKey = CONFIG.apiKey();
   if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
 
   const startTime = Date.now();
-  // Cap per-call timeout so a single call can't exceed the total budget
-  const perCallTimeout = Math.min(CONFIG.timeoutMs(), TOTAL_BUDGET_MS);
-  const client = new OpenAI({ apiKey, timeout: perCallTimeout });
+  const client = new OpenAI({ apiKey, timeout: PER_CALL_TIMEOUT_MS });
   const models = [CONFIG.model(), CONFIG.fallbackModel()];
-  const maxRetries = CONFIG.maxRetries();
 
   for (const modelName of models) {
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      // Abort if total budget is exhausted
-      const elapsed = Date.now() - startTime;
-      if (elapsed >= TOTAL_BUDGET_MS) {
-        throw new Error('LLM call exceeded total time budget');
-      }
-      try {
-        const response = await client.chat.completions.create({
-          model: modelName,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.4,
-        });
-        return response.choices[0].message.content;
-      } catch (err) {
-        const status = err?.status;
-        // Don't retry on 400 (bad request — prompt issue)
-        if (status === 400) throw err;
-        // On 429 (rate limit) or 5xx, try next attempt/model
-        if (attempt === maxRetries) break; // try next model
-      }
+    // Abort if total budget is exhausted
+    const elapsed = Date.now() - startTime;
+    if (elapsed >= TOTAL_BUDGET_MS) {
+      throw new Error('LLM call exceeded total time budget');
+    }
+    try {
+      const response = await client.chat.completions.create({
+        model: modelName,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.4,
+      });
+      return response.choices[0].message.content;
+    } catch (err) {
+      // Don't retry on 400 (bad request — prompt issue)
+      if (err?.status === 400) throw err;
+      // Try next model
+      continue;
     }
   }
-  throw new Error('LLM call failed after all retries and fallback');
+  throw new Error('LLM call failed with both primary and fallback models');
 }
 
 /**
