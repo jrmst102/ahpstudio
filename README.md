@@ -1,6 +1,6 @@
 # AHP Studio
 
-**Version:** 1.1.9  
+**Version:** 1.1.9 (First Stable Release)  
 **Author:** Dr. Jose Mendoza  
 **Copyright 2026 by Dr. Jose Mendoza.**
 
@@ -24,7 +24,8 @@ AHP Studio is a web-based decision support application implementing the Analytic
 - **Global Synthesis** — Normalized and idealized global priority rankings with sub-criteria weight aggregation
 - **Sensitivity Analysis** — Vary criterion weights to detect rank reversals
 - **Decision Report** — Generate a printable report with problem definition, hierarchy, participants, consensus analysis (Kendall's W), criteria weights, alternative priorities, final ranking, auto-generated decision rationale, round history, and sensitivity summary
-- **AI Report Narratives** — LLM-generated decision rationale, consensus summary, sensitivity commentary, and limitations sections embedded in the report; inline editing and up to 3 regenerations per session
+- **AI Report Narratives** — LLM-generated unified narrative summary covering decision rationale, consensus, sensitivity, and limitations; inline editing and up to 3 regenerations per session; model attribution footnote
+- **AI Consensus Explanation** — LLM interpretation of Kendall's W consensus results with one-click "Explain Results" button
 - **Consistency Coaching** — After submitting comparisons, participants receive AI-powered coaching cards for inconsistent groups (CR > 10%), explaining the most problematic triad in plain language with a "Revise This Group" shortcut
 - **Smart Validation** — "Review My Setup" button in the problem editor runs deterministic checks (cognitive load, limits) plus AI-powered structural observations (redundancy, coverage gaps, naming clarity, scale concerns) displayed in a slide-in panel
 - **Local File Save** — Save `.AHP` files directly to your computer; upload them to resume later
@@ -36,9 +37,9 @@ AHP Studio is a web-based decision support application implementing the Analytic
 - **Backend:** Node.js, Express.js 4.18, JWT, bcryptjs, ws (WebSocket)
 - **Frontend:** React 18, Tailwind CSS, Axios
 - **Storage:** DigitalOcean Spaces (@aws-sdk/client-s3 v3) — no database required
-- **Hosting:** DigitalOcean Droplet (nginx + PM2), GitHub Actions CI/CD
+- **Hosting:** DigitalOcean App Platform, GitHub Actions CI/CD
 - **Computation:** mathjs (eigenvector, consistency metrics), Kendall's W (built-in)
-- **LLM Integration:** OpenAI API (gpt-4o default, gpt-4o-mini fallback) — optional, graceful degradation when unavailable
+- **LLM Integration:** OpenAI API (gpt-4o-mini default, gpt-4o-mini fallback) — optional, graceful degradation when unavailable; 28s total time budget to fit within proxy timeouts
 
 ## Prerequisites
 - Node.js 18+
@@ -125,16 +126,16 @@ No database server is required.
 | `PORT` | No | `3001` | Server port |
 | `OPENAI_API_KEY` | No | — | OpenAI API key (enables LLM features) |
 | `LLM_ENABLED` | No | `true` | Set to `false` to disable LLM features even with an API key |
-| `OPENAI_MODEL` | No | `gpt-4o` | Primary OpenAI model |
+| `OPENAI_MODEL` | No | `gpt-4o-mini` | Primary OpenAI model |
 | `OPENAI_FALLBACK_MODEL` | No | `gpt-4o-mini` | Fallback model on primary failure |
-| `OPENAI_TIMEOUT_MS` | No | `30000` | API request timeout |
-| `OPENAI_MAX_RETRIES` | No | `2` | Retries per model before fallback |
+| `OPENAI_TIMEOUT_MS` | No | `14000` | Per-call API request timeout (total budget hard-capped at 28s) |
+| `OPENAI_MAX_RETRIES` | No | `0` | Retries per model before fallback |
 
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.1.9 | 2026-03-10 | Fix: Corrected inverted comparison scale — sliding toward an item now correctly marks it as preferred in the AHP computation |
+| 1.1.9 | 2026-03-11 | **First stable release.** Fixed inverted comparison scale; participant link redirect fix (401 interceptor); admin self-participation with auto-status tracking; unified AI narrative (single box); AI consensus explanation; GPT model footnote; aggressive LLM timeouts for DigitalOcean App Platform (28s budget); deployment migrated to DigitalOcean App Platform |
 | 1.1.8 | 2026-03-10 | UX: Question-based comparison framing, visual hierarchy map, step-based navigation; deployment updated to DigitalOcean Droplet with GitHub Actions CI/CD |
 | 1.1.7 | 2026-03-10 | Version display on login screen and footer; rebuilt client to fix participation link login redirect |
 | 1.1.6 | 2026-03-10 | LLM-powered intelligence layer: AI report narratives (OpenAI), consistency coaching for participants, smart validation with "Review My Setup" panel, triad-based inconsistency detection; consolidated respondents into participants; comparisons locked until owner adds themselves as a participant; reduced base font size |
@@ -155,7 +156,7 @@ No database server is required.
 | **Compute** | `POST /api/v1/compute/priorities`, `POST /compute/consistency`, `POST /compute/synthesize`, `POST /compute/sensitivity`, `POST /compute/aggregate` |
 | **Admin** | `GET/POST /api/v1/admin/users`, `PUT/DELETE /admin/users/:id`, `POST /admin/users/:id/unlock`, `POST /admin/users/:id/reset-password` |
 | **WebSocket** | `ws://host/ws/problems/:id/status` (admin JWT required) |
-| **LLM** | `GET /api/v1/llm/status`, `POST /problems/:id/report/narratives`, `POST /problems/:id/report/narratives/regenerate`, `POST /problems/:id/validate-structure` |
+| **LLM** | `GET /api/v1/llm/status`, `POST /problems/:id/report/narratives`, `POST /problems/:id/report/narratives/regenerate`, `POST /problems/:id/validate-structure`, `POST /problems/:id/consensus/explain` |
 | **Health** | `GET /api/v1/health` |
 
 ## Security
