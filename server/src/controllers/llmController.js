@@ -33,6 +33,7 @@ async function generateNarratives(req, res) {
     res.json({
       narratives,
       regenerationsRemaining: remaining,
+      model: llmService.CONFIG.model(),
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {

@@ -12,6 +12,7 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
   const [error, setError] = useState('');
   const [regenerationsRemaining, setRegenerationsRemaining] = useState(3);
   const [llmAvailable, setLlmAvailable] = useState(true);
+  const [modelUsed, setModelUsed] = useState('');
 
   const sections = [
     { key: 'decisionRationale', label: 'Decision Rationale' },
@@ -32,6 +33,7 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
       const result = await llmService.generateNarratives(problemId, contextPayload);
       setEditedNarratives({ ...result.narratives });
       setRegenerationsRemaining(result.regenerationsRemaining);
+      if (result.model) setModelUsed(result.model);
       setLlmAvailable(true);
       if (onNarrativesReady) onNarrativesReady(result.narratives);
     } catch (err) {
@@ -133,9 +135,14 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
       </div>
 
       <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-        <span className="text-xs text-gray-400">
-          You can edit the text above before generating the PDF.
-        </span>
+        <div>
+          <span className="text-xs text-gray-400">
+            You can edit the text above before generating the PDF.
+          </span>
+          {modelUsed && (
+            <p className="text-xs text-gray-300 mt-1">Generated using {modelUsed}</p>
+          )}
+        </div>
         <Button
           size="sm"
           variant="outline"
