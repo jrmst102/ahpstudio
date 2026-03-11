@@ -84,9 +84,12 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
     return (
       <div className="border border-gray-200 rounded-lg p-6 mt-4">
         <h4 className="text-lg font-semibold text-nyu-text-primary mb-3">AI-Generated Narrative</h4>
-        <p className="text-gray-500 text-sm">
+        <p className="text-gray-500 text-sm mb-3">
           {error || 'AI narrative unavailable — the report will include a standard summary.'}
         </p>
+        <Button size="sm" variant="outline" onClick={generateNarratives}>
+          Retry
+        </Button>
       </div>
     );
   }
