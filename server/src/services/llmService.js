@@ -6,8 +6,8 @@ const CONFIG = {
   apiKey: () => process.env.OPENAI_API_KEY,
   model: () => process.env.OPENAI_MODEL || 'gpt-4o',
   fallbackModel: () => process.env.OPENAI_FALLBACK_MODEL || 'gpt-4o-mini',
-  timeoutMs: () => parseInt(process.env.OPENAI_TIMEOUT_MS, 10) || 30000,
-  maxRetries: () => parseInt(process.env.OPENAI_MAX_RETRIES, 10) || 2,
+  timeoutMs: () => parseInt(process.env.OPENAI_TIMEOUT_MS, 10) || 45000,
+  maxRetries: () => parseInt(process.env.OPENAI_MAX_RETRIES, 10) || 0,
   enabled: () => {
     if (!process.env.OPENAI_API_KEY) return false;
     const flag = process.env.LLM_ENABLED;
