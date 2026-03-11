@@ -1022,12 +1022,64 @@ const ProblemEditor = () => {
           <div>
             <h3 className="text-xl font-semibold text-nyu-text-primary mb-4">Analysis Results</h3>
 
-            {!globalResults ? (
-              <div className="text-center py-12">
-                <p className="text-nyu-text-secondary mb-4">No results computed yet. Complete your comparisons first.</p>
-                <Button onClick={() => setActiveTab('comparisons')}>Go to Comparisons</Button>
-              </div>
-            ) : (
+            {!globalResults ? (() => {
+              const participants = currentProblem?.data?.participants || [];
+              const currentRound = currentProblem?.data?.currentRound || 1;
+              const roundKey = String(currentRound);
+              const completedCount = participants.filter(p => p.roundData?.[roundKey]?.status === 'completed').length;
+
+              if (problemId && completedCount > 0) {
+                return (
+                  <div className="text-center py-12">
+                    <p className="text-nyu-text-secondary mb-2">
+                      {completedCount} participant{completedCount !== 1 ? 's have' : ' has'} submitted comparisons.
+                    </p>
+                    <p className="text-nyu-text-secondary mb-4 text-sm">
+                      Compute aggregated results from participant submissions, or complete your own comparisons first.
+                    </p>
+                    <div className="flex justify-center gap-3">
+                      <Button
+                        disabled={computing}
+                        onClick={async () => {
+                          setComputing(true);
+                          setError('');
+                          try {
+                            const res = await problemService.getAggregateResults(problemId);
+                            setCriteriaWeights(res.criteriaWeights);
+                            setCriteriaCR(res.criteriaCR);
+                            setAltWeights(res.altWeights);
+                            setAltCRs(res.altCRs);
+                            setGlobalResults(res.globalResults);
+                            setConsensusData(res.consensus);
+                          } catch (err) {
+                            setError(err.response?.data?.error?.message || 'Failed to compute aggregate results');
+                          } finally {
+                            setComputing(false);
+                          }
+                        }}
+                      >
+                        {computing ? 'Computing…' : `Compute from ${completedCount} Participant${completedCount !== 1 ? 's' : ''}`}
+                      </Button>
+                      <Button variant="outline" onClick={() => setActiveTab('comparisons')}>
+                        Do My Own Comparisons
+                      </Button>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="text-center py-12">
+                  <p className="text-nyu-text-secondary mb-4">No results computed yet. Complete your comparisons or invite participants first.</p>
+                  <div className="flex justify-center gap-3">
+                    <Button onClick={() => setActiveTab('comparisons')}>Go to Comparisons</Button>
+                    {problemId && (
+                      <Button variant="outline" onClick={() => setActiveTab('participants')}>Invite Participants</Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })() : (
               <div className="space-y-8">
                 {/* Criteria Weights */}
                 <div>

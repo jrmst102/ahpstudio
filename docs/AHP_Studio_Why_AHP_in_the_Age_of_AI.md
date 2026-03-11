@@ -1,4 +1,4 @@
-# Why AHP Still Matters in the Age of Generative AI
+# AHP in the Age of Generative AI
 
 ---
 

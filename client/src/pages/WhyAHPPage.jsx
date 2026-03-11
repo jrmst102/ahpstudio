@@ -8,7 +8,7 @@ const WhyAHPPage = () => {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <button onClick={() => navigate(-1)} className="text-nyu-violet hover:underline text-sm mb-6 inline-block">← Back</button>
         <div className="bg-white rounded-lg shadow-md p-8 prose prose-lg max-w-none">
-          <h1 className="text-3xl font-bold text-nyu-text-primary mb-6">Why AHP Still Matters in the Age of Generative AI</h1>
+          <h1 className="text-3xl font-bold text-nyu-text-primary mb-6">AHP in the Age of Generative AI</h1>
 
           <h2 className="text-2xl font-semibold text-nyu-text-primary mt-8 mb-4">The Question Every Student Asks</h2>
           <p className="text-nyu-text-secondary mb-4">

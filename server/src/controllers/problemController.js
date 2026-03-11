@@ -724,6 +724,165 @@ async function getConsensus(req, res) {
   }
 }
 
+/* ───────────────── Aggregate Results ───────────────── */
+
+async function computeAggregateResults(req, res) {
+  try {
+    const { id } = req.params;
+    const data = await loadProblemFile(req.user.id, id);
+    if (!data) return res.status(404).json({ error: { message: 'Problem not found' } });
+
+    const participants = data.participants || [];
+    const currentRound = data.currentRound || 1;
+    const roundKey = String(currentRound);
+    const completed = participants.filter(p => p.roundData?.[roundKey]?.status === 'completed');
+
+    if (completed.length < 1) {
+      return res.status(400).json({ error: { message: 'At least 1 participant must have submitted comparisons.' } });
+    }
+
+    const criteria = data.criteria || [];
+    const alternatives = data.alternatives || [];
+    const subCriteria = data.subCriteria || {};
+
+    if (criteria.length < 2) return res.status(400).json({ error: { message: 'Need at least 2 criteria.' } });
+    if (alternatives.length < 2) return res.status(400).json({ error: { message: 'Need at least 2 alternatives.' } });
+
+    const weights = completed.map(p => p.weight || 1);
+
+    // Aggregate criteria matrices
+    const critMatrices = completed.map(p => {
+      const rd = p.roundData[roundKey].comparisons;
+      return rd?.criteriaMatrix || ahpEngine.createIdentityMatrix(criteria.length);
+    });
+    const aggCritMatrix = ahpEngine.aggregateMatrices(critMatrices, weights);
+    const cRes = ahpEngine.computePriorities(aggCritMatrix);
+    const criteriaWeights = {};
+    criteria.forEach((c, i) => { criteriaWeights[c] = cRes.priorities[i]; });
+
+    const n = aggCritMatrix.length;
+    const critEig = ahpEngine.computeEigenvector(aggCritMatrix);
+    const critLambda = ahpEngine.computeLambdaMax(aggCritMatrix, critEig);
+    const critCI = ahpEngine.computeCI(critLambda, n);
+    const critCR = ahpEngine.computeCR(critCI, n);
+    const criteriaCR = { cr: critCR, isConsistent: critCR <= 0.10, lambdaMax: critLambda, ci: critCI };
+
+    // Aggregate alternative matrices per criterion
+    const altWeights = {};
+    const altCRs = {};
+    for (const c of criteria) {
+      const subs = subCriteria[c] || [];
+      if (subs.length >= 2) {
+        // Sub-criteria aggregation
+        const scMatrices = completed.map(p => {
+          const rd = p.roundData[roundKey].comparisons;
+          return rd?.subCriteriaMatrices?.[c] || ahpEngine.createIdentityMatrix(subs.length);
+        });
+        const aggScMat = ahpEngine.aggregateMatrices(scMatrices, weights);
+        const scRes = ahpEngine.computePriorities(aggScMat);
+        const scWeights = {};
+        subs.forEach((sc, i) => { scWeights[sc] = scRes.priorities[i]; });
+
+        const effectiveAltWeights = {};
+        alternatives.forEach(a => { effectiveAltWeights[a] = 0; });
+
+        for (const sc of subs) {
+          const key = `${c}::${sc}`;
+          const scAltMatrices = completed.map(p => {
+            const rd = p.roundData[roundKey].comparisons;
+            return rd?.subCriteriaAltMatrices?.[key] || ahpEngine.createIdentityMatrix(alternatives.length);
+          });
+          const aggScAltMat = ahpEngine.aggregateMatrices(scAltMatrices, weights);
+          const scAltRes = ahpEngine.computePriorities(aggScAltMat);
+          alternatives.forEach((a, i) => {
+            effectiveAltWeights[a] += scWeights[sc] * scAltRes.priorities[i];
+          });
+        }
+        altWeights[c] = effectiveAltWeights;
+      } else {
+        const altMatrices = completed.map(p => {
+          const rd = p.roundData[roundKey].comparisons;
+          return rd?.altMatrices?.[c] || ahpEngine.createIdentityMatrix(alternatives.length);
+        });
+        const aggAltMat = ahpEngine.aggregateMatrices(altMatrices, weights);
+        const aRes = ahpEngine.computePriorities(aggAltMat);
+        const w = {};
+        alternatives.forEach((a, i) => { w[a] = aRes.priorities[i]; });
+        altWeights[c] = w;
+
+        const aN = aggAltMat.length;
+        const aEig = ahpEngine.computeEigenvector(aggAltMat);
+        const aLambda = ahpEngine.computeLambdaMax(aggAltMat, aEig);
+        const aCI = ahpEngine.computeCI(aLambda, aN);
+        const aCR = ahpEngine.computeCR(aCI, aN);
+        altCRs[c] = { cr: aCR, isConsistent: aCR <= 0.10, lambdaMax: aLambda, ci: aCI };
+      }
+    }
+
+    // Synthesize
+    const synth = ahpEngine.synthesize(criteriaWeights, altWeights);
+
+    // Consensus
+    let consensus = null;
+    if (completed.length >= 2) {
+      try {
+        consensus = {};
+        const critPriorityVectors = critMatrices.map(mat => ahpEngine.computePriorities(mat).priorities);
+        const critRanks = ahpEngine.prioritiesToRanks(critPriorityVectors);
+        consensus.criteria = ahpEngine.computeKendallW(critRanks);
+
+        consensus.alternatives = {};
+        if (alternatives.length >= 2) {
+          for (const c of criteria) {
+            const altMats = completed.map(p => {
+              const rd = p.roundData[roundKey].comparisons;
+              return rd?.altMatrices?.[c] || ahpEngine.createIdentityMatrix(alternatives.length);
+            });
+            const altPVectors = altMats.map(mat => ahpEngine.computePriorities(mat).priorities);
+            const altRanks = ahpEngine.prioritiesToRanks(altPVectors);
+            consensus.alternatives[c] = ahpEngine.computeKendallW(altRanks);
+          }
+        }
+
+        // Global consensus
+        const globalPVectors = completed.map(p => {
+          const rd = p.roundData[roundKey].comparisons;
+          const cm = rd?.criteriaMatrix || ahpEngine.createIdentityMatrix(criteria.length);
+          const cr = ahpEngine.computePriorities(cm);
+          const cw = {};
+          criteria.forEach((c2, i) => { cw[c2] = cr.priorities[i]; });
+          const aw = {};
+          for (const c2 of criteria) {
+            const am = rd?.altMatrices?.[c2] || ahpEngine.createIdentityMatrix(alternatives.length);
+            const ar = ahpEngine.computePriorities(am);
+            const ww = {};
+            alternatives.forEach((a, i) => { ww[a] = ar.priorities[i]; });
+            aw[c2] = ww;
+          }
+          const s = ahpEngine.synthesize(cw, aw);
+          return alternatives.map(a => s.normalized[a] || 0);
+        });
+        const globalRanks = ahpEngine.prioritiesToRanks(globalPVectors);
+        consensus.global = ahpEngine.computeKendallW(globalRanks);
+      } catch { consensus = null; }
+    }
+
+    res.json({
+      criteriaWeights,
+      criteriaCR,
+      altWeights,
+      altCRs,
+      globalResults: synth,
+      consensus,
+      completedCount: completed.length,
+      totalCount: participants.length,
+    });
+  } catch (error) {
+    console.error('Compute aggregate results error:', error);
+    res.status(500).json({ error: { message: 'Failed to compute aggregate results' } });
+  }
+}
+
 /* ───────────────── Rounds listing ───────────────── */
 
 async function listRounds(req, res) {
@@ -751,4 +910,5 @@ module.exports = {
   regeneratePin, updateConfig,
   closeRound, reopenRound, newRound, finalizeProblem,
   getConsensus, listRounds,
+  computeAggregateResults,
 };

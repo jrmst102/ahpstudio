@@ -38,6 +38,9 @@ router.post('/:id/finalize', problemController.finalizeProblem);
 router.get('/:id/consensus', problemController.getConsensus);
 router.get('/:id/rounds', problemController.listRounds);
 
+// Aggregate results from participant submissions
+router.get('/:id/aggregate-results', problemController.computeAggregateResults);
+
 // LLM-powered features
 router.post('/:id/report/narratives', llmController.generateNarratives);
 router.post('/:id/report/narratives/regenerate', llmController.regenerateNarratives);

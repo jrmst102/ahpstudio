@@ -152,6 +152,13 @@ const problemService = {
     const response = await api.get(`/problems/${problemId}/rounds`);
     return response.data;
   },
+
+  // ── Aggregate results from participant submissions ──
+
+  async getAggregateResults(problemId) {
+    const response = await api.get(`/problems/${problemId}/aggregate-results`);
+    return response.data;
+  },
 };
 
 export default problemService;
