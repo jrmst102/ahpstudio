@@ -141,6 +141,35 @@ async function validateStructure(req, res) {
 }
 
 /**
+ * POST /api/v1/problems/:id/consensus/explain
+ * Generate an LLM-powered explanation of consensus results.
+ */
+async function explainConsensus(req, res) {
+  try {
+    if (!llmService.CONFIG.enabled()) {
+      return res.status(503).json({
+        error: { message: 'AI explanation is temporarily unavailable.' },
+      });
+    }
+
+    const { consensusData } = req.body;
+    if (!consensusData) {
+      return res.status(400).json({
+        error: { message: 'Consensus data is required' },
+      });
+    }
+
+    const result = await llmService.generateConsensusExplanation(consensusData);
+    res.json(result);
+  } catch (error) {
+    console.error('Explain consensus error:', error);
+    res.status(500).json({
+      error: { message: 'AI explanation is temporarily unavailable.' },
+    });
+  }
+}
+
+/**
  * GET /api/v1/llm/status
  * Returns LLM configuration status.
  */
@@ -152,5 +181,6 @@ module.exports = {
   generateNarratives,
   regenerateNarratives,
   validateStructure,
+  explainConsensus,
   getLlmStatus,
 };

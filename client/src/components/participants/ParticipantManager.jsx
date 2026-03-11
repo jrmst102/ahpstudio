@@ -3,6 +3,7 @@ import Button from '../common/Button';
 import Modal from '../common/Modal';
 import Alert from '../common/Alert';
 import problemService from '../../services/problemService';
+import llmService from '../../services/llmService';
 import { MAX_PARTICIPANTS } from '../../utils/constants';
 
 const W_LABELS = [
@@ -41,6 +42,9 @@ const ParticipantManager = ({
   onDataChange,
   ownerName,
   ownerEmail,
+  problemTitle,
+  criteriaNames,
+  alternativeNames,
 }) => {
   const [participants, setParticipants] = useState([]);
   const [config, setConfig] = useState({
@@ -66,7 +70,12 @@ const ParticipantManager = ({
 
   // Consensus
   const [consensus, setConsensus] = useState(null);
+  const [consensusMeta, setConsensusMeta] = useState(null);
   const [loadingConsensus, setLoadingConsensus] = useState(false);
+
+  // Consensus explanation
+  const [consensusExplanation, setConsensusExplanation] = useState(null);
+  const [loadingExplanation, setLoadingExplanation] = useState(false);
 
   // Rounds
   const [rounds, setRounds] = useState([]);
@@ -324,13 +333,37 @@ const ParticipantManager = ({
 
   const handleLoadConsensus = async () => {
     setLoadingConsensus(true);
+    setConsensusExplanation(null);
     try {
       const data = await problemService.getConsensus(problemId);
-      setConsensus(data);
+      setConsensus(data.consensus);
+      setConsensusMeta({ completedCount: data.completedCount, totalCount: data.totalCount });
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Failed to compute consensus');
     } finally {
       setLoadingConsensus(false);
+    }
+  };
+
+  const handleExplainConsensus = async () => {
+    if (!consensus) return;
+    setLoadingExplanation(true);
+    try {
+      const result = await llmService.explainConsensus(problemId, {
+        criteria: consensus.criteria || null,
+        alternatives: consensus.alternatives || null,
+        global: consensus.global || null,
+        completedCount: consensusMeta?.completedCount,
+        totalCount: consensusMeta?.totalCount,
+        problemTitle: problemTitle || 'Untitled',
+        criteriaNames: criteriaNames || [],
+        alternativeNames: alternativeNames || [],
+      });
+      setConsensusExplanation(result.explanation);
+    } catch (err) {
+      setError(err.response?.data?.error?.message || 'AI explanation is temporarily unavailable.');
+    } finally {
+      setLoadingExplanation(false);
     }
   };
 
@@ -389,18 +422,14 @@ const ParticipantManager = ({
               onClick={async () => {
                 setError('');
                 try {
-                  const result = await problemService.addParticipant(problemId, {
+                  await problemService.addParticipant(problemId, {
                     name: ownerName || 'Owner',
                     email: ownerEmail || undefined,
                   });
-                  setLinkInfo({
-                    name: result.participant.name,
-                    link: result.participationLink,
-                    pin: result.pin,
-                  });
-                  setShowLinkModal(true);
                   loadParticipants();
                   onDataChange?.();
+                  setSuccess('You have been added as a participant. Use the Comparisons tab to enter your judgments.');
+                  setTimeout(() => setSuccess(''), 5000);
                 } catch (err) {
                   setError(err.response?.data?.error?.message || 'Failed to add yourself');
                 }
@@ -549,21 +578,28 @@ const ParticipantManager = ({
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => handleCopyLink(p)}
-                      className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded hover:bg-purple-200 transition-colors"
-                      title="Copy participation link"
-                    >
-                      Copy Link
-                    </button>
-                    {config.pinProtection && (
-                      <button
-                        onClick={() => handleRegeneratePin(p.id)}
-                        className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded hover:bg-amber-200 transition-colors"
-                        title="Regenerate PIN"
-                      >
-                        PIN
-                      </button>
+                    {!(
+                      (ownerEmail && p.email?.toLowerCase() === ownerEmail.toLowerCase()) ||
+                      (ownerName && p.name?.toLowerCase() === ownerName.toLowerCase())
+                    ) && (
+                      <>
+                        <button
+                          onClick={() => handleCopyLink(p)}
+                          className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded hover:bg-purple-200 transition-colors"
+                          title="Copy participation link"
+                        >
+                          Copy Link
+                        </button>
+                        {config.pinProtection && (
+                          <button
+                            onClick={() => handleRegeneratePin(p.id)}
+                            className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded hover:bg-amber-200 transition-colors"
+                            title="Regenerate PIN"
+                          >
+                            PIN
+                          </button>
+                        )}
+                      </>
                     )}
                     {!isFinalised && (
                       <button
@@ -617,6 +653,26 @@ const ParticipantManager = ({
               {consensus.global && (
                 <ConsensusRow label="Global Alternatives" data={consensus.global} />
               )}
+
+              {/* AI Explanation */}
+              <div className="mt-4">
+                {!consensusExplanation && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleExplainConsensus}
+                    disabled={loadingExplanation}
+                  >
+                    {loadingExplanation ? 'Generating explanation...' : '✨ Explain Results'}
+                  </Button>
+                )}
+                {consensusExplanation && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-xs font-semibold text-blue-700 mb-1">AI Explanation</p>
+                    <p className="text-sm text-nyu-text-secondary leading-relaxed">{consensusExplanation}</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

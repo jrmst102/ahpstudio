@@ -45,5 +45,6 @@ router.get('/:id/aggregate-results', problemController.computeAggregateResults);
 router.post('/:id/report/narratives', llmController.generateNarratives);
 router.post('/:id/report/narratives/regenerate', llmController.regenerateNarratives);
 router.post('/:id/validate-structure', llmController.validateStructure);
+router.post('/:id/consensus/explain', llmController.explainConsensus);
 
 module.exports = router;

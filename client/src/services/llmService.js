@@ -32,11 +32,20 @@ export async function validateStructure(problemId, problemData) {
   return res.data;
 }
 
+/**
+ * Generate LLM explanation of consensus results
+ */
+export async function explainConsensus(problemId, consensusData) {
+  const res = await api.post(`/problems/${problemId}/consensus/explain`, { consensusData });
+  return res.data;
+}
+
 const llmService = {
   getLlmStatus,
   generateNarratives,
   regenerateNarratives,
   validateStructure,
+  explainConsensus,
 };
 
 export default llmService;

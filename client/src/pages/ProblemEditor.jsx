@@ -862,6 +862,9 @@ const ProblemEditor = () => {
               onDataChange={() => loadProblem(problemId)}
               ownerName={user?.fullName || user?.username}
               ownerEmail={user?.email}
+              problemTitle={title}
+              criteriaNames={criteria}
+              alternativeNames={alternatives}
             />
           </div>
         )}
@@ -1282,15 +1285,15 @@ const ProblemEditor = () => {
               <NarrativePreview
                 problemId={problemId}
                 contextPayload={{
-                  goal: title,
+                  problemTitle: title,
+                  problemDescription: description,
                   criteria,
                   alternatives,
                   criteriaWeights,
-                  globalPriorities: globalResults.globalPriorities,
-                  ranking: globalResults.ranking,
-                  consistencyRatios: { criteria: criteriaCR, alternatives: altCRs },
+                  globalRankings: globalResults.globalPriorities,
+                  criteriaCR,
+                  altCRs,
                   sensitivityData,
-                  sensitivityCriterion,
                   consensus: consensusData,
                 }}
                 onNarrativesReady={setNarratives}
