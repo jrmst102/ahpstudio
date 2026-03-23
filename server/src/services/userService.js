@@ -51,6 +51,11 @@ async function findUserByUsername(username) {
   return users.find(u => u.username === username) || null;
 }
 
+async function findUserByEmail(email) {
+  const users = await loadUsers();
+  return users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase()) || null;
+}
+
 async function findUserById(userId) {
   const users = await loadUsers();
   return users.find(u => u.id === userId) || null;
@@ -145,7 +150,7 @@ async function verifyPassword(plainPassword, hashedPassword) {
 }
 
 module.exports = {
-  createUser, findUserByUsername, findUserById, updateUser, deleteUser,
+  createUser, findUserByUsername, findUserByEmail, findUserById, updateUser, deleteUser,
   listAllUsers, incrementFailedAttempts, resetFailedAttempts, unlockAccount,
   updateLastLogin, changePassword, verifyPassword,
 };

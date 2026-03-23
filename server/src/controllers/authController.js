@@ -163,9 +163,101 @@ async function changePassword(req, res) {
   }
 }
 
+/**
+ * SSO login from Decision Labs
+ */
+async function ssoLogin(req, res) {
+  const crypto = require('crypto');
+  const { token } = req.query;
+
+  if (!token) {
+    return res.redirect('/login');
+  }
+
+  const publicKeyStr = process.env.DECISIONLAB_SSO_PUBLIC_KEY;
+  if (!publicKeyStr) {
+    console.error('SSO: DECISIONLAB_SSO_PUBLIC_KEY not configured');
+    return res.redirect('/login');
+  }
+
+  // Convert OpenSSH public key to a KeyObject for RS256 verification
+  let publicKey;
+  try {
+    publicKey = crypto.createPublicKey({
+      key: Buffer.from(publicKeyStr),
+      format: 'openssh',
+    });
+  } catch (err) {
+    console.error('SSO: Failed to parse public key:', err.message);
+    return res.redirect('/login');
+  }
+
+  // Verify the RS256 JWT
+  let payload;
+  try {
+    payload = jwt.verify(token, publicKey, { algorithms: ['RS256'] });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      console.warn('SSO: token expired');
+    } else {
+      console.warn('SSO: invalid token:', err.message);
+    }
+    return res.redirect('/login');
+  }
+
+  const { email, role, firstName, lastName } = payload;
+  if (!email) {
+    return res.redirect('/login');
+  }
+
+  try {
+    // Find existing user by email
+    let user = await userService.findUserByEmail(email);
+
+    if (!user) {
+      // Provision a new SSO user
+      const { v4: uuidv4 } = require('uuid');
+      const username = email.split('@')[0];
+      const ahpRole = (role === 'ADMIN' || role === 'PROFESSOR') ? 'admin' : 'user';
+      const fullName = [firstName, lastName].filter(Boolean).join(' ') || username;
+
+      user = await userService.createUser({
+        username,
+        email,
+        password: uuidv4(), // random; SSO users don't use passwords
+        fullName,
+        role: ahpRole,
+      });
+    }
+
+    // Update last login
+    await userService.updateLastLogin(user.id);
+
+    // Create session JWT (same as normal login)
+    const sessionToken = jwt.sign(
+      { userId: user.id, username: user.username, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRATION || '24h' }
+    );
+
+    res.cookie('jwt', sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    return res.redirect('/');
+  } catch (err) {
+    console.error('SSO: user provisioning failed:', err);
+    return res.redirect('/login');
+  }
+}
+
 module.exports = {
   login,
   logout,
   getCurrentUser,
   changePassword,
+  ssoLogin,
 };

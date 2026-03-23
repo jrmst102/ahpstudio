@@ -38,6 +38,10 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/participate', participationRoutes);
 app.use('/api/v1/llm', llmRoutes);
 
+// SSO endpoint (top-level, not under /api/v1)
+const authController = require('./controllers/authController');
+app.get('/auth/sso', authController.ssoLogin);
+
 // Health check
 app.get('/api/v1/health', (req, res) => {
   res.json({
