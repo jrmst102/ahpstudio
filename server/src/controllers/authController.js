@@ -180,13 +180,11 @@ async function ssoLogin(req, res) {
     return res.redirect('/login');
   }
 
-  // Convert OpenSSH public key to a KeyObject for RS256 verification
+  // Parse the SPKI PEM public key for RS256 verification
   let publicKey;
   try {
-    publicKey = crypto.createPublicKey({
-      key: Buffer.from(publicKeyStr),
-      format: 'openssh',
-    });
+    const pem = publicKeyStr.replace(/\\n/g, '\n');
+    publicKey = crypto.createPublicKey({ key: pem, format: 'pem' });
   } catch (err) {
     console.error('SSO: Failed to parse public key:', err.message);
     return res.redirect('/login');
