@@ -81,6 +81,12 @@ AHP Studio is a web-based decision support application implementing the Analytic
    - Password: `AHPAdmin2026!`
    - **Change this password on first login!**
 
+   Demo accounts are also seeded for demonstrations:
+   - `demo_admin` / `DemoUser2026!`
+   - `demo_alex` / `DemoUser2026!`
+   - `demo_bailey` / `DemoUser2026!`
+   - `demo_casey` / `DemoUser2026!`
+
 ## Deployment (DigitalOcean Droplet)
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full instructions.

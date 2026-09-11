@@ -778,6 +778,10 @@ The database shall be seeded with:
 | Username | Full Name | Role | Password |
 |---|---|---|---|
 | `admin` | System Administrator | admin | `AHPAdmin2026!` (must be changed on first login) |
+| `demo_admin` | Demo Administrator | ADMIN | `DemoUser2026!` |
+| `demo_alex` | Alex Rivera | STUDENT | `DemoUser2026!` |
+| `demo_bailey` | Bailey Chen | STUDENT | `DemoUser2026!` |
+| `demo_casey` | Casey Morgan | STUDENT | `DemoUser2026!` |
 
 The admin account is used to create all student accounts before the course begins. There is no self-registration; all accounts are provisioned by the administrator.
 

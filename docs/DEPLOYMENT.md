@@ -75,6 +75,7 @@ pm2 startup
 - Frontend: https://yourdomain.com
 - API Health: https://yourdomain.com/api/v1/health
 - Login: admin / AHPAdmin2026! (change immediately)
+- Demo login: demo_admin / DemoUser2026!
 
 ## Post-Deployment
 - PM2 monitoring, DigitalOcean alerts
