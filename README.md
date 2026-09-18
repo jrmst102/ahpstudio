@@ -13,7 +13,7 @@ AHP Studio is a web-based decision support application implementing the Analytic
 
 The app opens directly into **Sample: Choosing a Laptop**, without a username or password. The example includes Cost, Performance, and Portability; three laptop alternatives; and completed pairwise comparisons. Select **Compute sample results** to show the ranking, then explore the comparisons, sensitivity analysis, and decision report.
 
-Each browser session has its own demo workspace. Changes survive page refreshes, but are held in server memory and reset when the server restarts. Use **Save** in the editor to download an `.AHP` file. **Dashboard → Restore sample problem** restores the original example without removing other problems you created.
+Each browser session has its own demo workspace. Use **Save** in the editor to download an `.AHP` file. **Dashboard → Restore sample problem** restores the original example without removing other problems you created.
 
 No cloud storage, account seed, or JWT secret is needed for the presentation:
 
@@ -26,7 +26,9 @@ npm start
 
 Open `http://localhost:3001`. For development, run `npm run dev:server` and `npm run dev:client` in separate terminals and open `http://localhost:3000`.
 
-Presentation mode uses isolated, temporary storage even if cloud credentials are configured. Account settings, logout, and administrator access are unavailable. To restore the original account-based application and cloud storage, set `DEMO_MODE=false` in the root `.env` or server environment and restart the server. The account-based setup below then applies.
+For hosted demos, configure `SPACES_ENDPOINT`, `SPACES_BUCKET`, `SPACES_KEY`, and `SPACES_SECRET` on every server instance. Demo sessions and problems are stored under a separate `demo/` prefix in that bucket, so requests to different instances and server restarts retain the same workspace. Normal account data stays separate. Without cloud configuration, the app uses memory for a single-process local demo; a restart resets that workspace and an expired browser session automatically reopens the demo.
+
+Account settings, logout, and administrator access are unavailable in presentation mode. To restore the original account-based application, set `DEMO_MODE=false` in the root `.env` or server environment and restart the server. The account-based setup below then applies.
 
 ## Features
 - **Decision Problem Management** — Create, save, load, delete, and import/export `.AHP` files

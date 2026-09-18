@@ -8,10 +8,14 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticate);
 
-router.post('/sample/restore', (req, res) => {
+router.post('/sample/restore', async (req, res, next) => {
   if (!req.user.isDemo) return res.sendStatus(404);
   const { seedSample } = require('../services/demoService');
-  res.json({ problem: seedSample(req.user) });
+  try {
+    res.json({ problem: await seedSample(req.user) });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Problem CRUD

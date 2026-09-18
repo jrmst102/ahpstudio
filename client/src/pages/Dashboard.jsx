@@ -126,7 +126,7 @@ const Dashboard = () => {
           <div>
             <h3 className="font-semibold text-nyu-text-primary">Ready for your presentation</h3>
             <p className="text-sm text-nyu-text-secondary mt-1">
-              Explore the laptop example or restore it for another walkthrough. Use Save in the editor to keep a file; demo changes reset when the server restarts.
+              Explore the laptop example or restore it for another walkthrough. Use Save in the editor to keep a copy of your work.
             </p>
           </div>
           <Button variant="outline" onClick={handleRestoreSample} disabled={restoring}>

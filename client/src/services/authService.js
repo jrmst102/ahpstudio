@@ -1,5 +1,7 @@
 import api from './api';
 
+let currentUserRequest;
+
 /**
  * Authentication service
  */
@@ -29,8 +31,13 @@ const authService = {
    * @returns {Promise<Object>} User data
    */
   async getCurrentUser() {
-    const response = await api.get('/auth/me');
-    return response.data;
+    // StrictMode/remounts must not create competing cookie-based sessions.
+    if (!currentUserRequest) {
+      currentUserRequest = api.get('/auth/me')
+        .then(response => response.data)
+        .finally(() => { currentUserRequest = null; });
+    }
+    return currentUserRequest;
   },
 
   /**

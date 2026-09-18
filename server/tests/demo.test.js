@@ -24,6 +24,7 @@ afterAll(() => {
 async function openDemo() {
   const browser = request.agent(app);
   const response = await browser.get('/auth/me').expect(200);
+  expect(response.headers['cache-control']).toBe('private, no-store');
   return { browser, user: response.body.user, cookie: response.headers['set-cookie'][0] };
 }
 
@@ -33,7 +34,7 @@ test('opens without credentials, preloads one complete sample, and preserves the
   expect(cookie).toContain('HttpOnly');
   expect(cookie).toContain('SameSite=Lax');
   const token = cookie.split(';')[0].split('=')[1];
-  expect(getSession(token).id).toBe(user.id);
+  expect((await getSession(token)).id).toBe(user.id);
   const again = await browser.get('/auth/me').expect(200);
   expect(again.body.user.id).toBe(user.id);
   const list = await browser.get('/problems').expect(200);
@@ -129,4 +130,17 @@ test('DEMO_MODE=false restores authentication and rejects demo cookies', async (
   await browser.get('/auth/me').expect(401);
   await browser.get('/problems').expect(401);
   await browser.post('/compute/priorities').send({ matrix: [[1, 2], [0.5, 1]] }).expect(401);
+});
+
+test('a lost session returns a recovery signal instead of switching workspaces mid-request', async () => {
+  const { browser, user, cookie } = await openDemo();
+  const token = cookie.split(';')[0].split('=')[1];
+  await storage.deleteKey(`sessions/${token}.json`);
+  const response = await browser.get(`/problems/${user.sampleProblemId}/participants`).expect(409);
+  expect(response.body.error.code).toBe('DEMO_SESSION_EXPIRED');
+  expect(response.headers['set-cookie']).toBeUndefined();
+  const reopened = await browser.get('/auth/me').expect(200);
+  const sample = reopened.body.user.sampleProblemId;
+  const participants = await browser.get(`/problems/${sample}/participants`).expect(200);
+  expect(participants.body.participants[0].name).toBe('Demo Presenter');
 });

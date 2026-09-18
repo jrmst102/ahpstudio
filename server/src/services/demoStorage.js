@@ -1,5 +1,5 @@
-// Demo data never reaches the configured cloud bucket. JSON copies preserve
-// the same read/write semantics as the normal storage service.
+// Memory fallback for single-process demos without cloud configuration.
+// JSON copies preserve the same read/write semantics as cloud storage.
 const documents = new Map();
 
 function getJSON(key) {

@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const url = require('url');
 const { isDemoMode } = require('./config/demo');
 const { COOKIE_NAME, getSession } = require('./services/demoService');
-const demoStorage = require('./services/demoStorage');
+const storage = require('./services/storageService');
 
 // Map of problemId -> Set of WebSocket connections
 const problemSubscribers = new Map();
@@ -15,7 +15,7 @@ const problemSubscribers = new Map();
 function setupWebSocket(server) {
   const wss = new WebSocketServer({ noServer: true });
 
-  server.on('upgrade', (request, socket, head) => {
+  server.on('upgrade', async (request, socket, head) => {
     const parsed = url.parse(request.url, true);
     const match = parsed.pathname.match(/^\/ws\/problems\/([^/]+)\/status$/);
 
@@ -30,8 +30,8 @@ function setupWebSocket(server) {
     const token = parsed.query.token || parseCookie(request.headers.cookie, 'jwt');
     try {
       if (isDemoMode()) {
-        const user = getSession(parseCookie(request.headers.cookie, COOKIE_NAME));
-        const problems = user && demoStorage.getJSON(`users/${user.id}/problems/index.json`);
+        const user = await getSession(parseCookie(request.headers.cookie, COOKIE_NAME));
+        const problems = user && await storage.getJSON(`users/${user.id}/problems/index.json`);
         if (!problems?.some(problem => problem.id === problemId)) throw new Error('Unknown demo problem');
       } else {
         jwt.verify(token, process.env.JWT_SECRET);

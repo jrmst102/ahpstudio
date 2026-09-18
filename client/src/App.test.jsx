@@ -74,3 +74,22 @@ test('an editor link from a previous demo session opens the fresh sample', async
     log.mockRestore();
   }
 });
+
+test('the Participants tab loads the preloaded presenter', async () => {
+  window.history.replaceState({}, '', '/');
+  problemService.listParticipants.mockResolvedValue({
+    participants: [{ ...problem.data.participants[0], weight: 1, status: 'completed' }],
+  });
+  problemService.listRounds.mockResolvedValue({ rounds: [] });
+  const socket = jest.spyOn(window, 'WebSocket').mockImplementation(() => ({ close: jest.fn() }));
+  try {
+    render(<App />);
+    await screen.findByDisplayValue(problem.title);
+    fireEvent.click(screen.getByRole('button', { name: /participants/i }));
+    expect(await screen.findByText('Demo Presenter')).toBeInTheDocument();
+    expect(screen.queryByText('Problem not found')).not.toBeInTheDocument();
+    expect(screen.queryByText('No participants added yet.')).not.toBeInTheDocument();
+  } finally {
+    socket.mockRestore();
+  }
+});

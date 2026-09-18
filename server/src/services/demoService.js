@@ -1,10 +1,9 @@
 const { randomUUID } = require('crypto');
-const storage = require('./demoStorage');
+const storage = require('./storageService');
 
-const sessions = new Map();
 const COOKIE_NAME = 'ahp_demo';
 
-function seedSample(user) {
+async function seedSample(user) {
   const now = new Date().toISOString();
   const id = user.sampleProblemId;
   const fileKey = `users/${user.id}/problems/${id}.AHP`;
@@ -34,7 +33,7 @@ function seedSample(user) {
       },
     },
   };
-  storage.putJSON(fileKey, {
+  await storage.putJSON(fileKey, {
     problem: { title: problem.title, description: problem.description },
     criteria: ['Cost', 'Performance', 'Portability'],
     alternatives: ['Budget Laptop', 'Performance Laptop', 'Lightweight Laptop'],
@@ -45,39 +44,53 @@ function seedSample(user) {
     currentRound: 1, roundStatus: 'open',
   });
   const indexKey = `users/${user.id}/problems/index.json`;
-  const problems = storage.getJSON(indexKey) || [];
-  storage.putJSON(indexKey, [problem, ...problems.filter(p => p.id !== id)]);
-  const tokens = storage.getJSON('data/participation-tokens.json') || {};
+  const problems = await storage.getJSON(indexKey) || [];
+  await storage.putJSON(indexKey, [problem, ...problems.filter(p => p.id !== id)]);
+  const tokens = await storage.getJSON('data/participation-tokens.json') || {};
   // Remove previous sample invitations when restoring the example.
   for (const [token, mapping] of Object.entries(tokens)) {
     if (mapping.problemId === id) delete tokens[token];
   }
   tokens[participant.token] = { userId: user.id, problemId: id, participantId: participant.id };
-  storage.putJSON('data/participation-tokens.json', tokens);
+  await storage.putJSON('data/participation-tokens.json', tokens);
   return problem;
 }
 
-function getSession(token) {
-  return sessions.get(token);
+async function getSession(token) {
+  if (typeof token !== 'string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(token)) return null;
+  return storage.getJSON(`sessions/${token}.json`);
 }
 
-function authenticateDemo(req, res, next) {
-  let token = req.cookies?.[COOKIE_NAME];
-  let user = getSession(token);
-  if (!user) {
-    token = randomUUID();
-    user = {
-      id: randomUUID(), username: 'presenter', fullName: 'Demo Presenter',
-      role: 'STUDENT', isDemo: true, sampleProblemId: randomUUID(),
-    };
-    seedSample(user);
-    sessions.set(token, user);
-    res.cookie(COOKIE_NAME, token, {
-      httpOnly: true, sameSite: 'lax', secure: req.secure,
-    });
+async function authenticateDemo(req, res, next) {
+  res.set('Cache-Control', 'private, no-store');
+  try {
+    let token = req.cookies?.[COOKIE_NAME];
+    let user = await getSession(token);
+    if (!user) {
+      // Only bootstrap can replace a missing session. Otherwise a stale editor
+      // would silently switch workspaces and show misleading problem 404s.
+      if (req.path !== '/me') {
+        return res.status(409).json({ error: {
+          code: 'DEMO_SESSION_EXPIRED',
+          message: 'The demo session has expired. Reopen the demo to continue.',
+        } });
+      }
+      token = randomUUID();
+      user = {
+        id: randomUUID(), username: 'presenter', fullName: 'Demo Presenter',
+        role: 'STUDENT', isDemo: true, sampleProblemId: randomUUID(),
+      };
+      await seedSample(user);
+      await storage.putJSON(`sessions/${token}.json`, user);
+      res.cookie(COOKIE_NAME, token, {
+        httpOnly: true, sameSite: 'lax', secure: req.secure,
+      });
+    }
+    req.user = { ...user };
+    next();
+  } catch (error) {
+    next(error);
   }
-  req.user = { ...user };
-  next();
 }
 
 module.exports = { COOKIE_NAME, getSession, authenticateDemo, seedSample };

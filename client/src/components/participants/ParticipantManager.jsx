@@ -102,6 +102,7 @@ const ParticipantManager = ({
       setLoading(true);
       const data = await problemService.listParticipants(problemId);
       setParticipants(data.participants || []);
+      setError('');
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Failed to load participants');
     } finally {
