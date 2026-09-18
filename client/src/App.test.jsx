@@ -4,9 +4,13 @@ import '@testing-library/jest-dom';
 import App from './App';
 import authService from './services/authService';
 import problemService from './services/problemService';
+import computeService from './services/computeService';
+import llmService from './services/llmService';
 
 jest.mock('./services/authService');
 jest.mock('./services/problemService');
+jest.mock('./services/computeService');
+jest.mock('./services/llmService');
 jest.mock('axios', () => ({ create: jest.fn(() => ({ get: jest.fn(), put: jest.fn() })) }));
 jest.mock('./services/api', () => ({
   __esModule: true,
@@ -92,4 +96,24 @@ test('the Participants tab loads the preloaded presenter', async () => {
   } finally {
     socket.mockRestore();
   }
+});
+
+test('the report sends the computed rankings and participant counts to the narrative service', async () => {
+  window.history.replaceState({}, '', '/');
+  const normalized = { 'Budget Laptop': 0.5, 'Performance Laptop': 0.2, 'Lightweight Laptop': 0.3 };
+  computeService.computePriorities.mockResolvedValue({ priorities: [0.5, 0.3, 0.2] });
+  computeService.computeConsistency.mockResolvedValue({ cr: 0, isConsistent: true });
+  computeService.synthesize.mockResolvedValue({ normalized, idealized: normalized });
+  problemService.saveProblem.mockResolvedValue({});
+  problemService.getConsensus.mockResolvedValue({ consensus: null });
+  llmService.generateNarratives.mockResolvedValue({ narratives: { narrative: 'The budget laptop ranks first.' }, regenerationsRemaining: 3 });
+  render(<App />);
+  await screen.findByDisplayValue(problem.title);
+  fireEvent.click(screen.getByRole('button', { name: 'Compute sample results' }));
+  await screen.findByText('Analysis Results');
+  fireEvent.click(screen.getByRole('button', { name: /report/i }));
+  expect(await screen.findByDisplayValue('The budget laptop ranks first.')).toBeInTheDocument();
+  expect(llmService.generateNarratives).toHaveBeenCalledWith(user.sampleProblemId, expect.objectContaining({
+    globalRankings: normalized, participantCount: 1, completedCount: 0, currentRound: 1,
+  }));
 });

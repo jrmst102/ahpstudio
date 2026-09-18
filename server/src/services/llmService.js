@@ -1,18 +1,19 @@
 const OpenAI = require('openai');
+const { describeLlmError } = require('./llmErrors');
 
 /* ────────────────────────── Configuration ────────────────────────── */
 
 const CONFIG = {
-  apiKey: () => process.env.OPENAI_API_KEY,
-  model: () => process.env.OPENAI_MODEL || 'gpt-4o-mini',
-  fallbackModel: () => process.env.OPENAI_FALLBACK_MODEL || 'gpt-4o-mini',
-  timeoutMs: () => parseInt(process.env.OPENAI_TIMEOUT_MS, 10) || 45000,
-  maxRetries: () => parseInt(process.env.OPENAI_MAX_RETRIES, 10) || 0,
+  apiKey: () => process.env.OPENAI_API_KEY?.trim(),
+  model: () => process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini',
+  fallbackModel: () => process.env.OPENAI_FALLBACK_MODEL?.trim() || 'gpt-4o-mini',
+  timeoutMs: () => Math.max(1, Math.min(14000, parseInt(process.env.OPENAI_TIMEOUT_MS, 10) || 14000)),
+  maxRetries: () => Math.max(0, Math.min(2, parseInt(process.env.OPENAI_MAX_RETRIES, 10) || 0)),
   enabled: () => {
-    if (!process.env.OPENAI_API_KEY) return false;
+    if (!CONFIG.apiKey()) return false;
     const flag = process.env.LLM_ENABLED;
     if (flag === undefined) return true;
-    return flag === 'true' || flag === '1';
+    return ['true', '1'].includes(flag.trim().toLowerCase());
   },
 };
 
@@ -50,45 +51,53 @@ function sanitizeElementName(name) {
  * Call the OpenAI API with retry and fallback logic.
  * @param {string} systemPrompt
  * @param {string} userPrompt
- * @returns {string} Raw text response
+ * @returns {Object} Raw content and the model that generated it
  */
 // Hard budget: must fit under DigitalOcean App Platform's proxy timeout.
-// Try primary model (15s), then fallback (15s) = 30s worst case.
+// SDK retries are disabled; every attempt shares this deadline.
 const TOTAL_BUDGET_MS = 28000;
-const PER_CALL_TIMEOUT_MS = 14000;
 
-async function callLLM(systemPrompt, userPrompt) {
+async function callLLM(systemPrompt, userPrompt, jsonObject = false) {
   const apiKey = CONFIG.apiKey();
-  if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
+  if (!apiKey) throw Object.assign(new Error('AI not configured'), { code: 'LLM_NOT_CONFIGURED' });
 
   const startTime = Date.now();
-  const client = new OpenAI({ apiKey, timeout: PER_CALL_TIMEOUT_MS });
-  const models = [CONFIG.model(), CONFIG.fallbackModel()];
+  const client = new OpenAI({ apiKey, timeout: CONFIG.timeoutMs(), maxRetries: 0 });
+  const models = [...new Set([CONFIG.model(), CONFIG.fallbackModel()])];
+  const deadline = AbortSignal.timeout(TOTAL_BUDGET_MS);
+  let lastError;
 
   for (const modelName of models) {
-    // Abort if total budget is exhausted
-    const elapsed = Date.now() - startTime;
-    if (elapsed >= TOTAL_BUDGET_MS) {
-      throw new Error('LLM call exceeded total time budget');
-    }
-    try {
-      const response = await client.chat.completions.create({
-        model: modelName,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.4,
-      });
-      return response.choices[0].message.content;
-    } catch (err) {
-      // Don't retry on 400 (bad request — prompt issue)
-      if (err?.status === 400) throw err;
-      // Try next model
-      continue;
+    for (let attempt = 0; attempt <= CONFIG.maxRetries(); attempt++) {
+      const remaining = TOTAL_BUDGET_MS - (Date.now() - startTime);
+      if (remaining <= 0 || deadline.aborted) {
+        throw Object.assign(new Error('AI request timed out'), { code: 'LLM_TIMEOUT' });
+      }
+      try {
+        const response = await client.chat.completions.create({
+          model: modelName,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.4,
+          ...(jsonObject && { response_format: { type: 'json_object' } }),
+        }, { timeout: Math.min(CONFIG.timeoutMs(), remaining), signal: deadline });
+        const content = response.choices?.[0]?.message?.content;
+        if (typeof content !== 'string' || !content.trim()) {
+          throw Object.assign(new Error('Empty AI response'), { code: 'LLM_INVALID_RESPONSE' });
+        }
+        return { content, model: response.model || modelName };
+      } catch (err) {
+        lastError = err;
+        const failure = describeLlmError(err);
+        // Neither different models nor retries repair account credentials/quota.
+        if (['LLM_AUTHENTICATION_FAILED', 'LLM_QUOTA_EXCEEDED'].includes(failure.code)) throw err;
+        if (!failure.retryable || failure.code === 'LLM_RATE_LIMITED') break;
+      }
     }
   }
-  throw new Error('LLM call failed with both primary and fallback models');
+  throw lastError;
 }
 
 /**
@@ -127,7 +136,7 @@ Respond in JSON format with exactly one key:
 /**
  * Generate report narrative sections.
  * @param {Object} contextPayload - Assembled problem context
- * @returns {Object} { decisionRationale, consensusSummary, sensitivityCommentary, limitationsAndCaveats }
+ * @returns {Object} { narrative, model }
  */
 async function generateReportNarratives(contextPayload) {
   const { title, description } = sanitizeProblemText(
@@ -163,14 +172,15 @@ ROUND HISTORY:
 Current Round: ${contextPayload.currentRound || 1}
 ${contextPayload.roundHistory ? JSON.stringify(contextPayload.roundHistory) : 'Single round'}`;
 
-  const raw = await callLLM(NARRATIVE_SYSTEM_PROMPT, userPrompt);
+  const { content: raw, model } = await callLLM(NARRATIVE_SYSTEM_PROMPT, userPrompt, true);
   const parsed = parseJsonResponse(raw);
 
-  const narrative = (typeof parsed.narrative === 'string' && parsed.narrative.trim().length > 0)
+  const narrative = (typeof parsed?.narrative === 'string' && parsed.narrative.trim().length > 0)
     ? parsed.narrative.trim()
     : null;
 
-  return { narrative };
+  if (!narrative) throw Object.assign(new Error('Missing narrative'), { code: 'LLM_INVALID_RESPONSE' });
+  return { narrative, model };
 }
 
 /* ────────────────────────── Feature 2: Consistency Coaching ──────── */
@@ -227,7 +237,7 @@ problematic triad identified.
 INCONSISTENT GROUPS:
 ${JSON.stringify(sanitized, null, 2)}`;
 
-  const raw = await callLLM(COACHING_SYSTEM_PROMPT, userPrompt);
+  const { content: raw } = await callLLM(COACHING_SYSTEM_PROMPT, userPrompt);
   const parsed = parseJsonResponse(raw);
 
   if (!Array.isArray(parsed)) return [];
@@ -416,7 +426,7 @@ COMPUTED METRICS (provided by system — do not recalculate):
 - Estimated completion time: ${estimatedMinutes} minutes
 - Participants: ${problemData.participantCount || 0}`;
 
-      const raw = await callLLM(VALIDATION_SYSTEM_PROMPT, userPrompt);
+      const { content: raw } = await callLLM(VALIDATION_SYSTEM_PROMPT, userPrompt);
       const parsed = parseJsonResponse(raw);
 
       if (Array.isArray(parsed)) {
@@ -466,6 +476,7 @@ function getStatus() {
     model: enabled ? CONFIG.model() : null,
     fallbackModel: enabled ? CONFIG.fallbackModel() : null,
     configured: !!CONFIG.apiKey(),
+    reason: enabled ? null : (CONFIG.apiKey() ? 'LLM_DISABLED' : 'LLM_NOT_CONFIGURED'),
   };
 }
 
@@ -554,7 +565,7 @@ ${consensusData.alternatives ? Object.entries(consensusData.alternatives).map(([
 ).join('\n') : 'Alternative consensus: Not available'}
 ${consensusData.global ? `Global consensus: W = ${consensusData.global.W?.toFixed(3)}, p = ${consensusData.global.pValue?.toFixed(4)}` : 'Global consensus: Not available'}`;
 
-  const raw = await callLLM(CONSENSUS_SYSTEM_PROMPT, userPrompt);
+  const { content: raw } = await callLLM(CONSENSUS_SYSTEM_PROMPT, userPrompt);
   const parsed = parseJsonResponse(raw);
 
   if (typeof parsed.explanation === 'string' && parsed.explanation.trim().length > 0) {

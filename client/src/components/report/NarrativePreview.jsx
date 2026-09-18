@@ -13,6 +13,7 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
   const [regenerationsRemaining, setRegenerationsRemaining] = useState(3);
   const [llmAvailable, setLlmAvailable] = useState(true);
   const [modelUsed, setModelUsed] = useState('');
+  const [retryable, setRetryable] = useState(true);
 
   useEffect(() => {
     generateNarratives();
@@ -22,6 +23,7 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
     setLoading(true);
     setError('');
     setLlmAvailable(true);
+    setRetryable(true);
     try {
       const result = await llmService.generateNarratives(problemId, contextPayload);
       const text = result.narratives?.narrative || null;
@@ -45,6 +47,7 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
       }
       setError(msg);
       setLlmAvailable(false);
+      setRetryable(err.response?.data?.error?.retryable !== false);
     } finally {
       setLoading(false);
     }
@@ -58,14 +61,16 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
       const text = result.narratives?.narrative || null;
       setNarrative(text);
       setRegenerationsRemaining(result.regenerationsRemaining);
+      if (result.model) setModelUsed(result.model);
       if (onNarrativesReady) onNarrativesReady(result.narratives);
     } catch (err) {
-      if (err.response?.status === 429) {
+      if (err.response?.data?.error?.code === 'REGENERATION_LIMIT') {
         setRegenerationsRemaining(0);
         setError('Regeneration limit reached.');
       } else {
-        setError('Failed to regenerate narratives.');
+        setError(err.response?.data?.error?.message || 'Failed to regenerate narratives.');
       }
+      setRetryable(err.response?.data?.error?.retryable !== false);
     } finally {
       setLoading(false);
     }
@@ -88,16 +93,16 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
     );
   }
 
-  if (!llmAvailable || error) {
+  if ((!llmAvailable || error) && !narrative) {
     return (
       <div className="border border-gray-200 rounded-lg p-6 mt-4">
         <h4 className="text-lg font-semibold text-nyu-text-primary mb-3">AI-Generated Narrative</h4>
         <p className="text-gray-500 text-sm mb-3">
           {error || 'AI narrative unavailable — the report will include a standard summary.'}
         </p>
-        <Button size="sm" variant="outline" onClick={generateNarratives}>
+        {retryable && <Button size="sm" variant="outline" onClick={generateNarratives}>
           Retry
-        </Button>
+        </Button>}
       </div>
     );
   }
@@ -107,6 +112,8 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
   return (
     <div className="border border-gray-200 rounded-lg p-6 mt-4">
       <h4 className="text-lg font-semibold text-nyu-text-primary mb-4">AI-Generated Narrative</h4>
+
+      {error && <p role="alert" className="text-gray-500 text-sm mb-3">{error} Your existing narrative is kept.</p>}
 
       <textarea
         value={narrative}
@@ -128,7 +135,7 @@ const NarrativePreview = ({ problemId, contextPayload, onNarrativesReady }) => {
           size="sm"
           variant="outline"
           onClick={handleRegenerate}
-          disabled={loading || regenerationsRemaining <= 0}
+          disabled={loading || regenerationsRemaining <= 0 || !retryable}
         >
           Regenerate ({regenerationsRemaining} left)
         </Button>

@@ -1,5 +1,24 @@
 const llmService = require('../services/llmService');
-const storageService = require('../services/storageService');
+const { describeLlmError } = require('../services/llmErrors');
+
+function narrativeFailure(res, error) {
+  const { status, ...publicError } = describeLlmError(error);
+  // Keep diagnostics useful without logging provider messages that may include
+  // credentials or the submitted report content.
+  console.error('Narrative generation failed:', {
+    code: publicError.code,
+    providerStatus: error.status,
+    providerCode: error.code,
+    requestId: error.requestID,
+  });
+  return res.status(status).json({ error: publicError });
+}
+
+function configurationFailure(res) {
+  return narrativeFailure(res, {
+    code: llmService.CONFIG.apiKey() ? 'LLM_DISABLED' : 'LLM_NOT_CONFIGURED',
+  });
+}
 
 /**
  * POST /api/v1/problems/:id/report/narratives
@@ -8,9 +27,7 @@ const storageService = require('../services/storageService');
 async function generateNarratives(req, res) {
   try {
     if (!llmService.CONFIG.enabled()) {
-      return res.status(503).json({
-        error: { message: 'AI-generated narrative is temporarily unavailable. The report will use a standard summary.' },
-      });
+      return configurationFailure(res);
     }
 
     const { id } = req.params;
@@ -33,19 +50,11 @@ async function generateNarratives(req, res) {
     res.json({
       narratives,
       regenerationsRemaining: remaining,
-      model: llmService.CONFIG.model(),
+      model: narratives.model,
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Generate narratives error:', error.message || error);
-    const isTimeout = error.message?.includes('timeout') || error.message?.includes('time budget') || error.code === 'ETIMEDOUT';
-    const status = isTimeout ? 504 : 500;
-    const message = isTimeout
-      ? 'The AI service took too long to respond. Please try again.'
-      : 'AI-generated narrative is temporarily unavailable. The report will use a standard summary.';
-    res.status(status).json({
-      error: { message },
-    });
+    return narrativeFailure(res, error);
   }
 }
 
@@ -56,9 +65,7 @@ async function generateNarratives(req, res) {
 async function regenerateNarratives(req, res) {
   try {
     if (!llmService.CONFIG.enabled()) {
-      return res.status(503).json({
-        error: { message: 'AI-generated narrative is temporarily unavailable.' },
-      });
+      return configurationFailure(res);
     }
 
     const { id } = req.params;
@@ -76,7 +83,7 @@ async function regenerateNarratives(req, res) {
     const remaining = llmService.getRegenerationsRemaining(req.user.id, id, roundNumber);
     if (remaining <= 0) {
       return res.status(429).json({
-        error: { message: 'Regeneration limit reached. You can regenerate up to 3 times per session.' },
+        error: { code: 'REGENERATION_LIMIT', message: 'Regeneration limit reached. You can regenerate up to 3 times per session.', retryable: false },
         regenerationsRemaining: 0,
       });
     }
@@ -87,13 +94,11 @@ async function regenerateNarratives(req, res) {
     res.json({
       narratives,
       regenerationsRemaining: newRemaining,
+      model: narratives.model,
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Regenerate narratives error:', error);
-    res.status(500).json({
-      error: { message: 'AI-generated narrative is temporarily unavailable. The report will use a standard summary.' },
-    });
+    return narrativeFailure(res, error);
   }
 }
 

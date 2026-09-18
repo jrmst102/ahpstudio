@@ -156,7 +156,20 @@ No database server is required.
 | `OPENAI_MODEL` | No | `gpt-4o-mini` | Primary OpenAI model |
 | `OPENAI_FALLBACK_MODEL` | No | `gpt-4o-mini` | Fallback model on primary failure |
 | `OPENAI_TIMEOUT_MS` | No | `14000` | Per-call API request timeout (total budget hard-capped at 28s) |
-| `OPENAI_MAX_RETRIES` | No | `0` | Retries per model before fallback |
+| `OPENAI_MAX_RETRIES` | No | `0` | Additional attempts per model (0–2), within the shared 28s deadline; SDK retries are disabled |
+
+### AI report narratives
+
+Presentation mode does not configure an AI account. On the **backend service** in your hosting dashboard, set `OPENAI_API_KEY` as a secret environment variable, leave `LLM_ENABLED` unset or set it to `true`, and restart/redeploy the backend. `OPENAI_MODEL` and `OPENAI_FALLBACK_MODEL` default to `gpt-4o-mini`. Do not put the API key in client code or a `REACT_APP_*` variable.
+
+With the app open, `/api/v1/llm/status` reports `configured`, `enabled`, and the selected models without exposing the key. This checks configuration only; it does not verify provider access or quota. Narrative failures now include a specific error code in the response and safe server logs:
+
+- `LLM_NOT_CONFIGURED` / `LLM_DISABLED`: check the backend environment settings.
+- `LLM_AUTHENTICATION_FAILED` / `LLM_MODEL_UNAVAILABLE`: check the key and model permissions.
+- `LLM_QUOTA_EXCEEDED`: check the API account's billing and usage limits.
+- `LLM_RATE_LIMITED` / `LLM_TIMEOUT`: retry after a short wait.
+
+The standard report remains available when AI generation fails. For provider-side error meanings, see the [official OpenAI error guide](https://developers.openai.com/api/docs/guides/error-codes).
 
 ## Version History
 

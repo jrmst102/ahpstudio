@@ -1312,11 +1312,17 @@ const ProblemEditor = () => {
                   criteria,
                   alternatives,
                   criteriaWeights,
-                  globalRankings: globalResults.globalPriorities,
+                  globalRankings: globalResults.normalized,
                   criteriaCR,
                   altCRs,
                   sensitivityData,
                   consensus: consensusData,
+                  participantCount: currentProblem?.data?.participants?.length || 0,
+                  completedCount: (currentProblem?.data?.participants || []).filter(
+                    p => p.roundData?.[String(participantCurrentRound)]?.status === 'completed'
+                  ).length,
+                  currentRound: participantCurrentRound,
+                  roundHistory: currentProblem?.data?.rounds || [],
                 }}
                 onNarrativesReady={setNarratives}
               />

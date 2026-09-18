@@ -58,7 +58,7 @@ app.get('/api/v1/health', (req, res) => {
       SPACES_REGION: process.env.SPACES_REGION ? 'SET' : 'MISSING',
       JWT_SECRET: process.env.JWT_SECRET ? 'SET' : 'MISSING',
       OPENAI_API_KEY: process.env.OPENAI_API_KEY ? 'SET' : 'MISSING',
-      LLM_ENABLED: process.env.LLM_ENABLED !== 'false' && process.env.OPENAI_API_KEY ? 'true' : 'false',
+      LLM_ENABLED: require('./services/llmService').CONFIG.enabled() ? 'true' : 'false',
       NODE_ENV: process.env.NODE_ENV || 'not set',
     },
   });
