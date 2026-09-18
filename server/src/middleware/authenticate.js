@@ -1,9 +1,12 @@
 const jwt = require('jsonwebtoken');
+const { isDemoMode } = require('../config/demo');
+const { authenticateDemo } = require('../services/demoService');
 
 /**
  * Middleware to authenticate JWT token from cookie
  */
 function authenticate(req, res, next) {
+  if (isDemoMode()) return authenticateDemo(req, res, next);
   try {
     const token = req.cookies.jwt;
     

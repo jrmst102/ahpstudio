@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProblem } from '../context/ProblemContext';
+import { useAuth } from '../context/AuthContext';
+import problemService from '../services/problemService';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
 import Alert from '../components/common/Alert';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [restoring, setRestoring] = useState(false);
   const { problems, loadProblems, createProblem, deleteProblem, saveProblem, loading } = useProblem();
   const [showNewProblemModal, setShowNewProblemModal] = useState(false);
   const [newProblemTitle, setNewProblemTitle] = useState('');
@@ -15,8 +19,21 @@ const Dashboard = () => {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    loadProblems();
+    loadProblems().catch(() => setError('Failed to load problems'));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleRestoreSample = async () => {
+    if (!window.confirm('Restore the sample to its original comparisons? Changes to the sample will be replaced.')) return;
+    setRestoring(true);
+    try {
+      const { problem } = await problemService.restoreSample();
+      navigate(`/editor/${problem.id}`);
+    } catch {
+      setError('Failed to restore the sample problem');
+    } finally {
+      setRestoring(false);
+    }
+  };
 
   /* ─── File upload handler ─── */
   const handleFileUpload = async (e) => {
@@ -103,6 +120,20 @@ const Dashboard = () => {
       {/* Alerts */}
       {error && <Alert type="error" message={error} onClose={() => setError('')} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess('')} />}
+
+      {user?.isDemo && (
+        <div className="card mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="font-semibold text-nyu-text-primary">Ready for your presentation</h3>
+            <p className="text-sm text-nyu-text-secondary mt-1">
+              Explore the laptop example or restore it for another walkthrough. Use Save in the editor to keep a file; demo changes reset when the server restarts.
+            </p>
+          </div>
+          <Button variant="outline" onClick={handleRestoreSample} disabled={restoring}>
+            {restoring ? 'Restoring...' : 'Restore sample problem'}
+          </Button>
+        </div>
+      )}
 
       {/* Action Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

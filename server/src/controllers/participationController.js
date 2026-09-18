@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const storageService = require('../services/storageService');
 const ahpEngine = require('../services/ahpEngine');
 const llmService = require('../services/llmService');
+const { participationSecret } = require('../config/demo');
 
 // In-memory PIN lockout tracking: { token: { attempts: N, lockedUntil: Date } }
 const pinLockouts = new Map();
@@ -101,7 +102,7 @@ async function verifyPin(req, res) {
     // Issue short-lived session JWT (4 hours)
     const sessionToken = jwt.sign(
       { participantId: participant.id, problemId, token },
-      process.env.JWT_SECRET,
+      participationSecret(),
       { expiresIn: '4h' }
     );
 
@@ -154,7 +155,7 @@ async function getParticipation(req, res) {
         });
       }
       try {
-        const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+        const decoded = jwt.verify(sessionToken, participationSecret());
         if (decoded.token !== token || decoded.problemId !== problemId) {
           return res.json({
             requiresPin: true,
@@ -246,7 +247,7 @@ async function saveParticipation(req, res) {
         return res.status(401).json({ error: { message: 'PIN verification required.' } });
       }
       try {
-        const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET);
+        const decoded = jwt.verify(sessionToken, participationSecret());
         if (decoded.token !== token || decoded.problemId !== problemId) {
           return res.status(401).json({ error: { message: 'Invalid session.' } });
         }

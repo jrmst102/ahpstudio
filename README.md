@@ -9,6 +9,25 @@ AHP Studio is a web-based decision support application implementing the Analytic
 
 **Live:** [https://squid-app-owz3p.ondigitalocean.app](https://squid-app-owz3p.ondigitalocean.app)
 
+## Presentation mode (default)
+
+The app opens directly into **Sample: Choosing a Laptop**, without a username or password. The example includes Cost, Performance, and Portability; three laptop alternatives; and completed pairwise comparisons. Select **Compute sample results** to show the ranking, then explore the comparisons, sensitivity analysis, and decision report.
+
+Each browser session has its own demo workspace. Changes survive page refreshes, but are held in server memory and reset when the server restarts. Use **Save** in the editor to download an `.AHP` file. **Dashboard → Restore sample problem** restores the original example without removing other problems you created.
+
+No cloud storage, account seed, or JWT secret is needed for the presentation:
+
+```bash
+npm ci --prefix server
+npm ci --prefix client
+npm run build --prefix client
+npm start
+```
+
+Open `http://localhost:3001`. For development, run `npm run dev:server` and `npm run dev:client` in separate terminals and open `http://localhost:3000`.
+
+Presentation mode uses isolated, temporary storage even if cloud credentials are configured. Account settings, logout, and administrator access are unavailable. To restore the original account-based application and cloud storage, set `DEMO_MODE=false` in the root `.env` or server environment and restart the server. The account-based setup below then applies.
+
 ## Features
 - **Decision Problem Management** — Create, save, load, delete, and import/export `.AHP` files
 - **Criteria & Sub-criteria** — Add up to 10 criteria, each with up to 6 sub-criteria for hierarchical structuring
@@ -41,12 +60,12 @@ AHP Studio is a web-based decision support application implementing the Analytic
 - **Computation:** mathjs (eigenvector, consistency metrics), Kendall's W (built-in)
 - **LLM Integration:** OpenAI API (gpt-4o-mini default, gpt-4o-mini fallback) — optional, graceful degradation when unavailable; 28s total time budget to fit within proxy timeouts
 
-## Prerequisites
+## Prerequisites (account-based mode)
 - Node.js 18+
 - DigitalOcean Spaces bucket (S3-compatible)
 - Git
 
-## Installation
+## Installation (account-based mode)
 
 1. Clone the repository:
    ```bash
@@ -54,10 +73,10 @@ AHP Studio is a web-based decision support application implementing the Analytic
    cd ahpstudio
    ```
 
-2. Copy and configure environment:
+2. Create a root `.env` file and configure `DEMO_MODE=false`, your Spaces credentials, and JWT secret (see [deployment configuration](docs/DEPLOYMENT.md)):
    ```bash
-   cp .env.example .env
-   # Edit .env with your Spaces credentials and JWT secret
+   touch .env
+   # Edit .env with DEMO_MODE=false, your Spaces credentials, and JWT secret
    ```
 
 3. Install dependencies and seed admin user:

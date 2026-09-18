@@ -178,13 +178,21 @@ async function saveProblem(req, res) {
     // If the owner has a participant record and comparisons exist, mark them completed
     if (problemData.participants?.length > 0 && hasCompletedComparisons(problemData)) {
       const user = await userService.findUserById(req.user.id);
-      const ownerNames = [req.user.username, user?.fullName].filter(Boolean).map(n => n.toLowerCase());
+      const ownerNames = [req.user.username, req.user.fullName, user?.fullName].filter(Boolean).map(n => n.toLowerCase());
       const currentRound = String(problemData.currentRound || 1);
 
       for (const p of problemData.participants) {
         if (ownerNames.includes(p.name?.toLowerCase())) {
           if (!p.roundData) p.roundData = {};
           if (!p.roundData[currentRound]) p.roundData[currentRound] = {};
+          if (req.user.isDemo) {
+            p.roundData[currentRound].comparisons = {
+              criteriaMatrix: problemData.criteriaMatrix,
+              altMatrices: problemData.altMatrices,
+              subCriteriaMatrices: problemData.subCriteriaMatrices,
+              subCriteriaAltMatrices: problemData.subCriteriaAltMatrices,
+            };
+          }
           if (p.roundData[currentRound].status !== 'completed') {
             p.roundData[currentRound].status = 'completed';
             p.roundData[currentRound].completedAt = new Date().toISOString();

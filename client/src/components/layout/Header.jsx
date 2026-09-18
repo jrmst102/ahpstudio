@@ -72,22 +72,30 @@ const Header = () => {
               </button>
             )}
 
-            <button
-              onClick={() => navigate('/settings')}
-              className="text-xs text-white hover:text-nyu-violet-ultra transition-colors"
-            >
-              Settings
-            </button>
+            {!user?.isDemo && (
+              <button
+                onClick={() => navigate('/settings')}
+                className="text-xs text-white hover:text-nyu-violet-ultra transition-colors"
+              >
+                Settings
+              </button>
+            )}
 
             {/* User Info */}
             <div className="flex items-center gap-3 ml-4 border-l border-nyu-violet-medium pl-6">
-              <div className="text-right">
-                <p className="text-white text-sm font-medium">{user?.fullName}</p>
-                <p className="text-nyu-violet-ultra text-xs">{user?.username}</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleLogout} className="!text-white !border-white hover:!bg-nyu-violet-medium">
-                Logout
-              </Button>
+              {user?.isDemo ? (
+                <span className="text-white text-sm font-medium">Presentation mode</span>
+              ) : (
+                <>
+                  <div className="text-right">
+                    <p className="text-white text-sm font-medium">{user?.fullName}</p>
+                    <p className="text-nyu-violet-ultra text-xs">{user?.username}</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleLogout} className="!text-white !border-white hover:!bg-nyu-violet-medium">
+                    Logout
+                  </Button>
+                </>
+              )}
             </div>
           </nav>
         </div>

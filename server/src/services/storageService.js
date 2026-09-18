@@ -1,5 +1,7 @@
 const { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { getSignedUrl: s3GetSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { isDemoMode } = require('../config/demo');
+const demoStorage = require('./demoStorage');
 
 // Lazy-initialise S3 so env vars are available (dotenv runs in app.js)
 let s3;
@@ -25,6 +27,7 @@ function bucket() {
 // ── Generic JSON helpers ──────────────────────────────────────────────
 
 async function getJSON(key) {
+  if (isDemoMode()) return demoStorage.getJSON(key);
   try {
     const data = await getS3().send(new GetObjectCommand({ Bucket: bucket(), Key: key }));
     const body = await data.Body.transformToString('utf-8');
@@ -36,6 +39,7 @@ async function getJSON(key) {
 }
 
 async function putJSON(key, obj) {
+  if (isDemoMode()) return demoStorage.putJSON(key, obj);
   await getS3().send(new PutObjectCommand({
     Bucket: bucket(),
     Key: key,
@@ -46,6 +50,7 @@ async function putJSON(key, obj) {
 }
 
 async function deleteKey(key) {
+  if (isDemoMode()) return demoStorage.deleteKey(key);
   await getS3().send(new DeleteObjectCommand({ Bucket: bucket(), Key: key }));
 }
 
@@ -68,6 +73,7 @@ async function deleteProblemFile(fileKey) {
 }
 
 async function listUserFiles(userId) {
+  if (isDemoMode()) return demoStorage.listUserFiles(userId);
   const data = await getS3().send(new ListObjectsV2Command({
     Bucket: bucket(),
     Prefix: `users/${userId}/problems/`,
@@ -76,6 +82,10 @@ async function listUserFiles(userId) {
 }
 
 async function getSignedUrl(fileKey, expiresIn = 3600) {
+  if (isDemoMode()) {
+    const data = await downloadProblemFile(fileKey);
+    return `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(data, null, 2))}`;
+  }
   const command = new GetObjectCommand({ Bucket: bucket(), Key: fileKey });
   return s3GetSignedUrl(getS3(), command, { expiresIn });
 }

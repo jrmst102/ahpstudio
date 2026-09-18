@@ -124,7 +124,17 @@ const ProblemEditor = () => {
   /* ─── Load problem data ─── */
   useEffect(() => {
     if (problemId) {
-      loadProblem(problemId).catch(() => setError('Failed to load problem'));
+      loadProblem(problemId).catch((err) => {
+        // A restarted demo server creates a fresh workspace. Recover stale
+        // editor bookmarks by opening its new sample instead.
+        if (user?.isDemo && err.response?.status === 404) {
+          const destination = problemId === user.sampleProblemId
+            ? '/dashboard' : `/editor/${user.sampleProblemId}`;
+          navigate(destination, { replace: true });
+        } else {
+          setError('Failed to load problem');
+        }
+      });
     }
   }, [problemId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -647,6 +657,18 @@ const ProblemEditor = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {user?.isDemo && problemId === user.sampleProblemId && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-nyu-violet-medium bg-white p-4 text-sm text-nyu-text-secondary">
+          <p className="flex-1">
+            This sample includes three criteria, three laptops, and completed comparisons.
+            Explore the judgments in Comparisons or compute the results to see the ranking.
+            You can restore the sample from the Dashboard.
+          </p>
+          <Button onClick={handleCompute} disabled={computing || criteria.length < 2 || alternatives.length < 2}>
+            {computing ? 'Computing…' : 'Compute sample results'}
+          </Button>
+        </div>
+      )}
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>

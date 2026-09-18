@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProblemProvider } from './context/ProblemContext';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
@@ -15,6 +15,15 @@ import TermsPage from './pages/TermsPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import ParticipatePage from './pages/ParticipatePage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+
+function HomeRoute() {
+  const { user } = useAuth();
+  return (
+    <ProtectedRoute>
+      <Navigate to={user?.isDemo ? `/editor/${user.sampleProblemId}` : '/dashboard'} replace />
+    </ProtectedRoute>
+  );
+}
 
 function App() {
   return (
@@ -50,7 +59,7 @@ function App() {
             <Route
               path="/settings"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute accountOnly>
                   <AccountSettings />
                 </ProtectedRoute>
               }
@@ -90,7 +99,7 @@ function App() {
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/participate/:problemId/:token" element={<ParticipatePage />} />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<HomeRoute />} />
           </Routes>
         </ProblemProvider>
       </AuthProvider>

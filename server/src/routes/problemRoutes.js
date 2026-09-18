@@ -8,6 +8,12 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticate);
 
+router.post('/sample/restore', (req, res) => {
+  if (!req.user.isDemo) return res.sendStatus(404);
+  const { seedSample } = require('../services/demoService');
+  res.json({ problem: seedSample(req.user) });
+});
+
 // Problem CRUD
 router.post('/', problemController.createProblem);
 router.get('/', problemController.listProblems);

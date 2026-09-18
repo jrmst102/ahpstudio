@@ -40,7 +40,10 @@ app.use('/api/v1/llm', llmRoutes);
 
 // SSO endpoint (top-level, not under /api/v1)
 const authController = require('./controllers/authController');
-app.get('/auth/sso', authController.ssoLogin);
+app.get('/auth/sso', (req, res) => {
+  if (require('./config/demo').isDemoMode()) return res.redirect('/');
+  return authController.ssoLogin(req, res);
+});
 
 // Health check
 app.get('/api/v1/health', (req, res) => {

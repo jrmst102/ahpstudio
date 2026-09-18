@@ -4,6 +4,11 @@ import api from './api';
  * Problem service
  */
 const problemService = {
+  async restoreSample() {
+    const response = await api.post('/problems/sample/restore');
+    return response.data;
+  },
+
   /**
    * Create a new problem
    * @param {Object} problemData - Problem data

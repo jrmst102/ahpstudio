@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/common/Button';
 import Alert from '../components/common/Alert';
@@ -7,18 +7,11 @@ import packageJson from '../../package.json';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { login, user } = useAuth();
+  const { login, user, loading: checkingSession } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // Redirect if already logged in
-  React.useEffect(() => {
-    if (user) {
-      navigate('/dashboard');
-    }
-  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,6 +27,11 @@ const LoginPage = () => {
       setLoading(false);
     }
   };
+
+  if (checkingSession) {
+    return <div className="min-h-screen flex items-center justify-center">Opening AHP Studio...</div>;
+  }
+  if (user) return <Navigate to="/" replace />;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-nyu-violet-ultra px-4">

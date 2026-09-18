@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import Header from '../layout/Header';
 import Footer from '../layout/Footer';
 
-const ProtectedRoute = ({ children, requireAdmin = false }) => {
+const ProtectedRoute = ({ children, requireAdmin = false, accountOnly = false }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -23,6 +23,10 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
   }
 
   if (requireAdmin && user.role !== 'ADMIN') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (accountOnly && user.isDemo) {
     return <Navigate to="/dashboard" replace />;
   }
 

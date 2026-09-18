@@ -94,6 +94,7 @@ function logout(req, res) {
  * Get current authenticated user info
  */
 async function getCurrentUser(req, res) {
+  if (req.user.isDemo) return res.json({ user: req.user });
   try {
     const user = await userService.findUserById(req.user.id);
     

@@ -1,6 +1,9 @@
 const { WebSocketServer } = require('ws');
 const jwt = require('jsonwebtoken');
 const url = require('url');
+const { isDemoMode } = require('./config/demo');
+const { COOKIE_NAME, getSession } = require('./services/demoService');
+const demoStorage = require('./services/demoStorage');
 
 // Map of problemId -> Set of WebSocket connections
 const problemSubscribers = new Map();
@@ -25,14 +28,14 @@ function setupWebSocket(server) {
 
     // Authenticate via query param or cookie
     const token = parsed.query.token || parseCookie(request.headers.cookie, 'jwt');
-    if (!token) {
-      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-      socket.destroy();
-      return;
-    }
-
     try {
-      jwt.verify(token, process.env.JWT_SECRET);
+      if (isDemoMode()) {
+        const user = getSession(parseCookie(request.headers.cookie, COOKIE_NAME));
+        const problems = user && demoStorage.getJSON(`users/${user.id}/problems/index.json`);
+        if (!problems?.some(problem => problem.id === problemId)) throw new Error('Unknown demo problem');
+      } else {
+        jwt.verify(token, process.env.JWT_SECRET);
+      }
     } catch {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();
